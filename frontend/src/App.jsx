@@ -55,6 +55,8 @@ const I18N = {
     mdExpected: "Resultado esperado", mdProb: "Probabilidades", mdNoData: "Aínda non hai xornada dispoñible.",
     tpBack: "← Volver á clasificación", tpNext: "Próximo partido", tpCalendar: "Calendario",
     tpPlayed: "Xogados", tpUpcoming: "Pendentes", tpHome: "Casa", tpAway: "Fóra", tpJ: "X",
+    tpStyle: "Perfil de estilo", tpOffense: "Ataque", tpDefense: "Defensa",
+    tpHomePerf: "Local", tpAwayPerf: "Visitante", tpStyleNote: "Nota de estilo (prensa)",
   },
   es: {
     tagline: "a nosa vida",
@@ -84,6 +86,8 @@ const I18N = {
     mdExpected: "Resultado esperado", mdProb: "Probabilidades", mdNoData: "Aún no hay jornada disponible.",
     tpBack: "← Volver a la clasificación", tpNext: "Próximo partido", tpCalendar: "Calendario",
     tpPlayed: "Jugados", tpUpcoming: "Pendientes", tpHome: "Casa", tpAway: "Fuera", tpJ: "J",
+    tpStyle: "Perfil de estilo", tpOffense: "Ataque", tpDefense: "Defensa",
+    tpHomePerf: "Local", tpAwayPerf: "Visitante", tpStyleNote: "Nota de estilo (prensa)",
   },
 };
 
@@ -420,9 +424,30 @@ function TeamProfile({ t, slug, onBack }) {
           </div>
         </section>
       </div>
+
+      {/* perfil de estilo */}
+      {d.style && d.style.played > 0 && (
+        <section className="mt-4 rounded-lg border border-neutral-200 bg-white p-4">
+          <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-500">{t.tpStyle}</h3>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[[t.tpOffense, d.style.offense, "#c0392b"], [t.tpDefense, d.style.defense, "#2f6fd0"], [t.tpHomePerf, d.style.home, "#1a8a4a"], [t.tpAwayPerf, d.style.away, "#e0a500"]].map(([label, val, col]) => (
+              <div key={label}>
+                <div className="mb-0.5 flex justify-between text-xs"><span className="text-neutral-600">{label}</span><span className="font-bold tabular-nums">{val}</span></div>
+                <div className="h-2.5 w-full overflow-hidden rounded bg-neutral-200"><div className="h-full rounded" style={{ width: `${val}%`, backgroundColor: col }} /></div>
+              </div>
+            ))}
+          </div>
+          {d.style_note && (
+            <div className="mt-3 rounded-md bg-neutral-50 p-3 text-xs text-neutral-600">
+              <span className="font-semibold">{t.tpStyleNote}: </span>{d.style_note}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }
+
 
 /* =========================================================== DASHBOARD ==== */
 function Dashboard({ t, onTeamClick }) {
@@ -452,9 +477,9 @@ function Dashboard({ t, onTeamClick }) {
           api.probs().catch(() => []),
         ]);
         if (!alive) return;
-        const probByTeam = Object.fromEntries((pr || []).map((p) => [p.team, p]));
+        const probBySlug = Object.fromEntries((pr || []).map((p) => [p.slug, p]));
         const adapted = adaptStandings(st).map((r) => {
-          const p = probByTeam[r.n] || {};
+          const p = probBySlug[r.k] || {};
           return { ...r, pC: p.pChamp ?? 0, pP: p.pPO ?? 0, pR: p.pRel ?? 0 };
         });
         adapted.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
@@ -764,8 +789,8 @@ function Simulator({ t }) {
         <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-500">{t.jornada} {jornada}</h3>
         <div className="grid gap-2 sm:grid-cols-2">
           {fixtures.map(([h, a], i) => {
-            const th = T[h] || { n: h, c: "#888", s: "?" };
-            const ta = T[a] || { n: a, c: "#888", s: "?" };
+            const th = T[h] ? { ...T[h], k: h } : { n: h, c: "#888", s: "?", k: h };
+            const ta = T[a] ? { ...T[a], k: a } : { n: a, c: "#888", s: "?", k: a };
             return (
             <div key={i} className="flex items-center justify-between gap-2 rounded-md border border-neutral-100 px-3 py-2">
               <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5">
@@ -813,9 +838,9 @@ function Simulator({ t }) {
 
 /* Fallback do Centro de Mando (mentres non hai datos reais / liga sen empezar). */
 const MOCK_HUB = {
-  usPos: 6, themPos: 9,
-  us: { pts: 14, gf: 12, ga: 9, form: ["L","W","D","W","W"] },
-  them: { pts: 11, gf: 16, ga: 14, form: ["L","W","D","D","L"] },
+  usPos: "-", themPos: "-",
+  us: { pts: 0, gf: 0, ga: 0, form: [] },
+  them: { pts: 0, gf: 0, ga: 0, form: [] },
 };
 
 /* ======================================================= CENTRO DE MANDO == */
@@ -870,11 +895,13 @@ function CommandCenter({ t }) {
   // marcador esperado en orde LOCAL-VISITANTE (coherente cos escudos)
   const likely = exp?.likely_score || [1, 1];
 
-  // evolución: reais se hai, mock se non
+  // evolución: SÓ datos reais. Se a liga aínda non empezou, queda baleiro e
+  // amosaremos un aviso en vez de datos inventados.
   const evo = (data?.evo && data.evo.length)
     ? data.evo.map((e) => [e.jornada, e.pts, e.oPts])
-    : [[1,0,1.2],[2,1,2.4],[3,1,3.6],[4,2,4.9],[5,5,6.3],[6,5,8.6],[7,5,9.1],[8,6,10.5]];
+    : [];
   const gap = evo.length ? evo[evo.length-1][2] - evo[evo.length-1][1] : 0;
+  const hasEvo = evo.length > 0;
 
   const next = { win, draw, loss, likely };
 
@@ -943,10 +970,16 @@ function CommandCenter({ t }) {
       <section className="mt-4 rounded-lg border border-neutral-200 bg-white p-4">
         <h3 className="mb-1 text-xs font-bold uppercase tracking-wide text-neutral-500">{t.perf}</h3>
         <p className="mb-3 text-xs text-neutral-500">{t.perfSub}</p>
-        <div className="mb-3 inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-bold" style={{ backgroundColor: gap > 0.5 ? "#fbecea" : "#e7f5ec", color: gap > 0.5 ? "#c0392b" : "#1a8a4a" }}>
-          {gap > 0.5 ? "▼" : "▲"} {t.deserves} {Math.abs(gap).toFixed(1)} {gap > 0 ? t.morePts : t.lessPts}
-        </div>
-        <EvoChart evo={evo} t={t} />
+        {hasEvo ? (
+          <>
+            <div className="mb-3 inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-bold" style={{ backgroundColor: gap > 0.5 ? "#fbecea" : "#e7f5ec", color: gap > 0.5 ? "#c0392b" : "#1a8a4a" }}>
+              {gap > 0.5 ? "▼" : "▲"} {t.deserves} {Math.abs(gap).toFixed(1)} {gap > 0 ? t.morePts : t.lessPts}
+            </div>
+            <EvoChart evo={evo} t={t} />
+          </>
+        ) : (
+          <div className="py-6 text-center text-sm text-neutral-400">{t.mdNoData}</div>
+        )}
       </section>
     </div>
   );
