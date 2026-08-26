@@ -26,3 +26,7 @@ services:
         sync: false                  # introdúcela ti na web de Render (non vai a git)
       - key: ALLOWED_ORIGIN          # dominio do frontend en Vercel, para CORS
         sync: false                  # ex: https://ourenseeud.vercel.app
+      - key: ADMIN_USER              # o teu usuario admin (ex: david)
+        sync: false                  # introdúcelo ti na web de Render
+      - key: ADMIN_PASSWORD          # o contrasinal do admin
+        sync: false                  # introdúcelo ti na web de Render (non vai a git)
