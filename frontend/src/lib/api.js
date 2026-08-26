@@ -34,3 +34,9 @@ api.headToHead = (slug) => get(`/api/team/${slug}/vs`);
 
 // Plantilla
 api.squad = () => get("/api/squad");
+
+// Currículum / Resume Board
+api.resume = () => get("/api/resume");
+
+// Ficha de equipo
+api.teamProfile = (slug) => get(`/api/team/${slug}`);
