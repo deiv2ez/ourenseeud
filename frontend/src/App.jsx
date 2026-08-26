@@ -867,9 +867,8 @@ function CommandCenter({ t }) {
   const loss = exp ? Math.round((udoIsHome ? exp.away_win : exp.home_win) * 100) : 49;
   const ogHome = exp?.oGoals_home ?? (udoIsHome ? 1.94 : 2.81);
   const ogAway = exp?.oGoals_away ?? (udoIsHome ? 2.81 : 1.94);
-  const likely = exp?.likely_score
-    ? (udoIsHome ? exp.likely_score : [exp.likely_score[1], exp.likely_score[0]])
-    : [1, 2];
+  // marcador esperado en orde LOCAL-VISITANTE (coherente cos escudos)
+  const likely = exp?.likely_score || [1, 1];
 
   // evolución: reais se hai, mock se non
   const evo = (data?.evo && data.evo.length)
@@ -887,9 +886,18 @@ function CommandCenter({ t }) {
         <section className="rounded-lg border border-neutral-200 bg-white p-4">
           <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-500">{t.hubNext}</h3>
           <div className="mb-3 flex items-center justify-center gap-3">
-            <div className="flex flex-col items-center gap-1"><Crest team={them} size={40} /><span className="text-xs text-neutral-600">{them.n}</span></div>
-            <span className="text-neutral-300">vs</span>
-            <div className="flex flex-col items-center gap-1"><Crest team={us} size={40} /><span className="text-xs font-bold" style={{ color: RED }}>{us.n}</span></div>
+            {(() => {
+              // local á esquerda, visitante á dereita
+              const homeTeam = udoIsHome ? us : them;
+              const awayTeam = udoIsHome ? them : us;
+              const cell = (tm) => (
+                <div className="flex flex-col items-center gap-1">
+                  <Crest team={tm} size={40} />
+                  <span className={`text-xs ${tm.udo ? "font-bold" : "text-neutral-600"}`} style={tm.udo ? { color: RED } : undefined}>{tm.n}</span>
+                </div>
+              );
+              return (<>{cell(homeTeam)}<span className="text-neutral-300">vs</span>{cell(awayTeam)}</>);
+            })()}
           </div>
           <div className="mb-1 flex h-7 overflow-hidden rounded">
             <div className="grid place-items-center text-[10px] font-bold text-white" style={{ width: `${next.win}%`, backgroundColor: "#1a8a4a" }}>{next.win}%</div>
@@ -903,13 +911,13 @@ function CommandCenter({ t }) {
               <div className="text-[10px] text-neutral-500">oGoals</div>
               <div className="flex items-center justify-center gap-2">
                 <div className="flex flex-col items-center">
-                  <span className="text-xl font-black tabular-nums">{udoIsHome ? ogHome : ogAway}</span>
-                  <span className="text-[9px] uppercase text-neutral-400">{us.s}</span>
+                  <span className="text-xl font-black tabular-nums">{ogHome}</span>
+                  <span className="text-[9px] uppercase text-neutral-400">{(udoIsHome ? us : them).s}</span>
                 </div>
                 <span className="text-neutral-300">·</span>
                 <div className="flex flex-col items-center">
-                  <span className="text-xl font-black tabular-nums">{udoIsHome ? ogAway : ogHome}</span>
-                  <span className="text-[9px] uppercase text-neutral-400">{them.s}</span>
+                  <span className="text-xl font-black tabular-nums">{ogAway}</span>
+                  <span className="text-[9px] uppercase text-neutral-400">{(udoIsHome ? them : us).s}</span>
                 </div>
               </div>
             </div>
