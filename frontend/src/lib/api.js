@@ -1,5 +1,7 @@
 // Cliente de la API. En Vercel, define VITE_API_URL con la URL del backend.
-const BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+// Quitamos calquera barra final para evitar dobre barra (//api/...) que rompe as peticións.
+const RAW_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const BASE = RAW_BASE.replace(/\/+$/, "");
 
 async function get(path, params) {
   const url = new URL(BASE + path);
