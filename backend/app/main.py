@@ -383,6 +383,24 @@ def admin_reload(user: dict = Depends(require_admin)):
             "standings": len(result["standings"]), "played": len(result["played"])}
 
 
+@app.on_event("startup")
+def _ensure_admin():
+    """
+    Crea/actualiza o usuario admin ao arrancar, lendo de variables de entorno.
+    Isto resolve dúas cousas no plan gratuíto de Render:
+      - non fai falta a Shell (que é de pago),
+      - o usuario recréase en cada arranque, así que sobrevive aos reinicios que
+        borran o disco local (onde vive users.json).
+    Define en Render: ADMIN_USER e ADMIN_PASSWORD. Se non están, non fai nada.
+    """
+    admin_user = os.environ.get("ADMIN_USER")
+    admin_pass = os.environ.get("ADMIN_PASSWORD")
+    if admin_user and admin_pass:
+        from .auth import create_user
+        create_user(admin_user, admin_pass, role="admin")
+        print(f"[startup] usuario admin '{admin_user}' asegurado")
+
+
 @app.get("/")
 def root():
     return {"app": "Ourense é UD", "docs": "/docs"}
