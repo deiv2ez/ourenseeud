@@ -413,6 +413,8 @@ def team_profile(slug: str):
         "gf": row["gf"], "ga": row["ga"], "gd": row["gd"], "pts": row["pts"],
         "oPts": round(opts, 1), "form": row["form"],
         "elo": round(model.strength[name].elo),
+        "style": model.team_style(data["played"]).get(name),
+        "style_note": data.get("style_notes", {}).get(slug),  # nota cualitativa editable (admin)
         "next": next_match, "fixtures": fixtures,
     }
 
