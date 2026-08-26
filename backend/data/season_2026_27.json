@@ -1,0 +1,2389 @@
+{
+  "teams": [
+    {
+      "slug": "arenas",
+      "name": "Arenas Club",
+      "color": "#111111"
+    },
+    {
+      "slug": "bilbao-ath",
+      "name": "Bilbao Athletic",
+      "color": "#c10000"
+    },
+    {
+      "slug": "barakaldo",
+      "name": "Barakaldo CF",
+      "color": "#e0b000"
+    },
+    {
+      "slug": "coria",
+      "name": "CD Coria",
+      "color": "#123f8c"
+    },
+    {
+      "slug": "extremadura",
+      "name": "CD Extremadura",
+      "color": "#0b6e3b"
+    },
+    {
+      "slug": "lugo",
+      "name": "CD Lugo",
+      "color": "#9b1b30"
+    },
+    {
+      "slug": "mirandes",
+      "name": "CD Mirandés",
+      "color": "#b1121b"
+    },
+    {
+      "slug": "leonesa",
+      "name": "CyD Leonesa",
+      "color": "#0a1b3d"
+    },
+    {
+      "slug": "merida",
+      "name": "AD Mérida",
+      "color": "#0b0b0b"
+    },
+    {
+      "slug": "pontevedra",
+      "name": "Pontevedra CF",
+      "color": "#1a3a7a"
+    },
+    {
+      "slug": "racing-ferrol",
+      "name": "Racing Ferrol",
+      "color": "#0a7a2f"
+    },
+    {
+      "slug": "fabril",
+      "name": "RC Deportivo Fabril",
+      "color": "#1874c4"
+    },
+    {
+      "slug": "aviles",
+      "name": "Real Avilés",
+      "color": "#111111"
+    },
+    {
+      "slug": "real-union",
+      "name": "Real Unión",
+      "color": "#c8102e"
+    },
+    {
+      "slug": "ponferradina",
+      "name": "SD Ponferradina",
+      "color": "#1f5fbf"
+    },
+    {
+      "slug": "logrones",
+      "name": "UD Logroñés",
+      "color": "#c8102e"
+    },
+    {
+      "slug": "ourense",
+      "name": "UD Ourense",
+      "color": "#C8102E",
+      "udo": true
+    },
+    {
+      "slug": "unionistas",
+      "name": "Unionistas",
+      "color": "#0a1b3d"
+    },
+    {
+      "slug": "cacereno",
+      "name": "CP Cacereño",
+      "color": "#0b6e3b"
+    },
+    {
+      "slug": "zamora",
+      "name": "Zamora CF",
+      "color": "#c8102e"
+    }
+  ],
+  "played": [],
+  "remaining": [
+    {
+      "jornada": 1,
+      "home": "Arenas Club",
+      "away": "Racing Ferrol",
+      "date": "2026-08-30"
+    },
+    {
+      "jornada": 1,
+      "home": "Barakaldo CF",
+      "away": "CyD Leonesa",
+      "date": "2026-08-30"
+    },
+    {
+      "jornada": 1,
+      "home": "CP Cacereño",
+      "away": "CD Mirandés",
+      "date": "2026-08-30"
+    },
+    {
+      "jornada": 1,
+      "home": "AD Mérida",
+      "away": "RC Deportivo Fabril",
+      "date": "2026-08-30"
+    },
+    {
+      "jornada": 1,
+      "home": "UD Ourense",
+      "away": "SD Ponferradina",
+      "date": "2026-08-30"
+    },
+    {
+      "jornada": 1,
+      "home": "Real Avilés",
+      "away": "Pontevedra CF",
+      "date": "2026-08-30"
+    },
+    {
+      "jornada": 1,
+      "home": "Real Unión",
+      "away": "CD Coria",
+      "date": "2026-08-30"
+    },
+    {
+      "jornada": 1,
+      "home": "UD Logroñés",
+      "away": "CD Extremadura",
+      "date": "2026-08-30"
+    },
+    {
+      "jornada": 1,
+      "home": "Unionistas",
+      "away": "CD Lugo",
+      "date": "2026-08-30"
+    },
+    {
+      "jornada": 1,
+      "home": "Zamora CF",
+      "away": "Bilbao Athletic",
+      "date": "2026-08-30"
+    },
+    {
+      "jornada": 2,
+      "home": "Bilbao Athletic",
+      "away": "Real Avilés",
+      "date": "2026-09-06"
+    },
+    {
+      "jornada": 2,
+      "home": "CD Coria",
+      "away": "Barakaldo CF",
+      "date": "2026-09-06"
+    },
+    {
+      "jornada": 2,
+      "home": "CyD Leonesa",
+      "away": "AD Mérida",
+      "date": "2026-09-06"
+    },
+    {
+      "jornada": 2,
+      "home": "RC Deportivo Fabril",
+      "away": "CP Cacereño",
+      "date": "2026-09-06"
+    },
+    {
+      "jornada": 2,
+      "home": "CD Extremadura",
+      "away": "Racing Ferrol",
+      "date": "2026-09-06"
+    },
+    {
+      "jornada": 2,
+      "home": "CD Mirandés",
+      "away": "UD Ourense",
+      "date": "2026-09-06"
+    },
+    {
+      "jornada": 2,
+      "home": "Pontevedra CF",
+      "away": "Arenas Club",
+      "date": "2026-09-06"
+    },
+    {
+      "jornada": 2,
+      "home": "SD Ponferradina",
+      "away": "CD Lugo",
+      "date": "2026-09-06"
+    },
+    {
+      "jornada": 2,
+      "home": "Unionistas",
+      "away": "Real Unión",
+      "date": "2026-09-06"
+    },
+    {
+      "jornada": 2,
+      "home": "Zamora CF",
+      "away": "UD Logroñés",
+      "date": "2026-09-06"
+    },
+    {
+      "jornada": 3,
+      "home": "Arenas Club",
+      "away": "Zamora CF",
+      "date": "2026-09-13"
+    },
+    {
+      "jornada": 3,
+      "home": "Barakaldo CF",
+      "away": "CD Extremadura",
+      "date": "2026-09-13"
+    },
+    {
+      "jornada": 3,
+      "home": "CP Cacereño",
+      "away": "CyD Leonesa",
+      "date": "2026-09-13"
+    },
+    {
+      "jornada": 3,
+      "home": "RC Deportivo Fabril",
+      "away": "SD Ponferradina",
+      "date": "2026-09-13"
+    },
+    {
+      "jornada": 3,
+      "home": "Racing Ferrol",
+      "away": "Real Unión",
+      "date": "2026-09-13"
+    },
+    {
+      "jornada": 3,
+      "home": "CD Lugo",
+      "away": "CD Coria",
+      "date": "2026-09-13"
+    },
+    {
+      "jornada": 3,
+      "home": "AD Mérida",
+      "away": "CD Mirandés",
+      "date": "2026-09-13"
+    },
+    {
+      "jornada": 3,
+      "home": "UD Ourense",
+      "away": "UD Logroñés",
+      "date": "2026-09-13"
+    },
+    {
+      "jornada": 3,
+      "home": "Pontevedra CF",
+      "away": "Bilbao Athletic",
+      "date": "2026-09-13"
+    },
+    {
+      "jornada": 3,
+      "home": "Real Avilés",
+      "away": "Unionistas",
+      "date": "2026-09-13"
+    },
+    {
+      "jornada": 4,
+      "home": "Bilbao Athletic",
+      "away": "RC Deportivo Fabril",
+      "date": "2026-09-20"
+    },
+    {
+      "jornada": 4,
+      "home": "CD Coria",
+      "away": "Real Avilés",
+      "date": "2026-09-20"
+    },
+    {
+      "jornada": 4,
+      "home": "CP Cacereño",
+      "away": "Arenas Club",
+      "date": "2026-09-20"
+    },
+    {
+      "jornada": 4,
+      "home": "CD Extremadura",
+      "away": "CyD Leonesa",
+      "date": "2026-09-20"
+    },
+    {
+      "jornada": 4,
+      "home": "Racing Ferrol",
+      "away": "Barakaldo CF",
+      "date": "2026-09-20"
+    },
+    {
+      "jornada": 4,
+      "home": "Real Unión",
+      "away": "CD Mirandés",
+      "date": "2026-09-20"
+    },
+    {
+      "jornada": 4,
+      "home": "SD Ponferradina",
+      "away": "AD Mérida",
+      "date": "2026-09-20"
+    },
+    {
+      "jornada": 4,
+      "home": "UD Logroñés",
+      "away": "Pontevedra CF",
+      "date": "2026-09-20"
+    },
+    {
+      "jornada": 4,
+      "home": "Unionistas",
+      "away": "UD Ourense",
+      "date": "2026-09-20"
+    },
+    {
+      "jornada": 4,
+      "home": "Zamora CF",
+      "away": "CD Lugo",
+      "date": "2026-09-20"
+    },
+    {
+      "jornada": 5,
+      "home": "Arenas Club",
+      "away": "Bilbao Athletic",
+      "date": "2026-09-27"
+    },
+    {
+      "jornada": 5,
+      "home": "Barakaldo CF",
+      "away": "Real Avilés",
+      "date": "2026-09-27"
+    },
+    {
+      "jornada": 5,
+      "home": "CyD Leonesa",
+      "away": "CD Coria",
+      "date": "2026-09-27"
+    },
+    {
+      "jornada": 5,
+      "home": "RC Deportivo Fabril",
+      "away": "Real Unión",
+      "date": "2026-09-27"
+    },
+    {
+      "jornada": 5,
+      "home": "CD Extremadura",
+      "away": "Zamora CF",
+      "date": "2026-09-27"
+    },
+    {
+      "jornada": 5,
+      "home": "CD Lugo",
+      "away": "Racing Ferrol",
+      "date": "2026-09-27"
+    },
+    {
+      "jornada": 5,
+      "home": "AD Mérida",
+      "away": "UD Logroñés",
+      "date": "2026-09-27"
+    },
+    {
+      "jornada": 5,
+      "home": "CD Mirandés",
+      "away": "Unionistas",
+      "date": "2026-09-27"
+    },
+    {
+      "jornada": 5,
+      "home": "UD Ourense",
+      "away": "CP Cacereño",
+      "date": "2026-09-27"
+    },
+    {
+      "jornada": 5,
+      "home": "Pontevedra CF",
+      "away": "SD Ponferradina",
+      "date": "2026-09-27"
+    },
+    {
+      "jornada": 6,
+      "home": "Bilbao Athletic",
+      "away": "CD Extremadura",
+      "date": "2026-10-04"
+    },
+    {
+      "jornada": 6,
+      "home": "Barakaldo CF",
+      "away": "Arenas Club",
+      "date": "2026-10-04"
+    },
+    {
+      "jornada": 6,
+      "home": "Racing Ferrol",
+      "away": "Pontevedra CF",
+      "date": "2026-10-04"
+    },
+    {
+      "jornada": 6,
+      "home": "AD Mérida",
+      "away": "CP Cacereño",
+      "date": "2026-10-04"
+    },
+    {
+      "jornada": 6,
+      "home": "Real Avilés",
+      "away": "CD Lugo",
+      "date": "2026-10-04"
+    },
+    {
+      "jornada": 6,
+      "home": "Real Unión",
+      "away": "UD Ourense",
+      "date": "2026-10-04"
+    },
+    {
+      "jornada": 6,
+      "home": "SD Ponferradina",
+      "away": "CD Mirandés",
+      "date": "2026-10-04"
+    },
+    {
+      "jornada": 6,
+      "home": "UD Logroñés",
+      "away": "RC Deportivo Fabril",
+      "date": "2026-10-04"
+    },
+    {
+      "jornada": 6,
+      "home": "Unionistas",
+      "away": "CyD Leonesa",
+      "date": "2026-10-04"
+    },
+    {
+      "jornada": 6,
+      "home": "Zamora CF",
+      "away": "CD Coria",
+      "date": "2026-10-04"
+    },
+    {
+      "jornada": 7,
+      "home": "Bilbao Athletic",
+      "away": "Real Unión",
+      "date": "2026-10-11"
+    },
+    {
+      "jornada": 7,
+      "home": "CD Coria",
+      "away": "CD Extremadura",
+      "date": "2026-10-11"
+    },
+    {
+      "jornada": 7,
+      "home": "CP Cacereño",
+      "away": "Unionistas",
+      "date": "2026-10-11"
+    },
+    {
+      "jornada": 7,
+      "home": "CyD Leonesa",
+      "away": "Arenas Club",
+      "date": "2026-10-11"
+    },
+    {
+      "jornada": 7,
+      "home": "RC Deportivo Fabril",
+      "away": "Racing Ferrol",
+      "date": "2026-10-11"
+    },
+    {
+      "jornada": 7,
+      "home": "CD Lugo",
+      "away": "UD Logroñés",
+      "date": "2026-10-11"
+    },
+    {
+      "jornada": 7,
+      "home": "CD Mirandés",
+      "away": "Zamora CF",
+      "date": "2026-10-11"
+    },
+    {
+      "jornada": 7,
+      "home": "UD Ourense",
+      "away": "Barakaldo CF",
+      "date": "2026-10-11"
+    },
+    {
+      "jornada": 7,
+      "home": "Pontevedra CF",
+      "away": "AD Mérida",
+      "date": "2026-10-11"
+    },
+    {
+      "jornada": 7,
+      "home": "SD Ponferradina",
+      "away": "Real Avilés",
+      "date": "2026-10-11"
+    },
+    {
+      "jornada": 8,
+      "home": "Arenas Club",
+      "away": "AD Mérida",
+      "date": "2026-10-18"
+    },
+    {
+      "jornada": 8,
+      "home": "Barakaldo CF",
+      "away": "CD Mirandés",
+      "date": "2026-10-18"
+    },
+    {
+      "jornada": 8,
+      "home": "CD Coria",
+      "away": "Bilbao Athletic",
+      "date": "2026-10-18"
+    },
+    {
+      "jornada": 8,
+      "home": "CD Extremadura",
+      "away": "Real Unión",
+      "date": "2026-10-18"
+    },
+    {
+      "jornada": 8,
+      "home": "Racing Ferrol",
+      "away": "Unionistas",
+      "date": "2026-10-18"
+    },
+    {
+      "jornada": 8,
+      "home": "CD Lugo",
+      "away": "RC Deportivo Fabril",
+      "date": "2026-10-18"
+    },
+    {
+      "jornada": 8,
+      "home": "Pontevedra CF",
+      "away": "CP Cacereño",
+      "date": "2026-10-18"
+    },
+    {
+      "jornada": 8,
+      "home": "Real Avilés",
+      "away": "UD Ourense",
+      "date": "2026-10-18"
+    },
+    {
+      "jornada": 8,
+      "home": "UD Logroñés",
+      "away": "CyD Leonesa",
+      "date": "2026-10-18"
+    },
+    {
+      "jornada": 8,
+      "home": "Zamora CF",
+      "away": "SD Ponferradina",
+      "date": "2026-10-18"
+    },
+    {
+      "jornada": 9,
+      "home": "Arenas Club",
+      "away": "UD Ourense",
+      "date": "2026-10-25"
+    },
+    {
+      "jornada": 9,
+      "home": "CP Cacereño",
+      "away": "Zamora CF",
+      "date": "2026-10-25"
+    },
+    {
+      "jornada": 9,
+      "home": "CyD Leonesa",
+      "away": "Pontevedra CF",
+      "date": "2026-10-25"
+    },
+    {
+      "jornada": 9,
+      "home": "RC Deportivo Fabril",
+      "away": "CD Extremadura",
+      "date": "2026-10-25"
+    },
+    {
+      "jornada": 9,
+      "home": "AD Mérida",
+      "away": "CD Coria",
+      "date": "2026-10-25"
+    },
+    {
+      "jornada": 9,
+      "home": "CD Mirandés",
+      "away": "Racing Ferrol",
+      "date": "2026-10-25"
+    },
+    {
+      "jornada": 9,
+      "home": "Real Avilés",
+      "away": "UD Logroñés",
+      "date": "2026-10-25"
+    },
+    {
+      "jornada": 9,
+      "home": "Real Unión",
+      "away": "CD Lugo",
+      "date": "2026-10-25"
+    },
+    {
+      "jornada": 9,
+      "home": "SD Ponferradina",
+      "away": "Barakaldo CF",
+      "date": "2026-10-25"
+    },
+    {
+      "jornada": 9,
+      "home": "Unionistas",
+      "away": "Bilbao Athletic",
+      "date": "2026-10-25"
+    },
+    {
+      "jornada": 10,
+      "home": "Bilbao Athletic",
+      "away": "CP Cacereño",
+      "date": "2026-11-01"
+    },
+    {
+      "jornada": 10,
+      "home": "Barakaldo CF",
+      "away": "Pontevedra CF",
+      "date": "2026-11-01"
+    },
+    {
+      "jornada": 10,
+      "home": "CD Coria",
+      "away": "Arenas Club",
+      "date": "2026-11-01"
+    },
+    {
+      "jornada": 10,
+      "home": "CD Extremadura",
+      "away": "Unionistas",
+      "date": "2026-11-01"
+    },
+    {
+      "jornada": 10,
+      "home": "Racing Ferrol",
+      "away": "SD Ponferradina",
+      "date": "2026-11-01"
+    },
+    {
+      "jornada": 10,
+      "home": "CD Lugo",
+      "away": "AD Mérida",
+      "date": "2026-11-01"
+    },
+    {
+      "jornada": 10,
+      "home": "UD Ourense",
+      "away": "CyD Leonesa",
+      "date": "2026-11-01"
+    },
+    {
+      "jornada": 10,
+      "home": "Real Unión",
+      "away": "Real Avilés",
+      "date": "2026-11-01"
+    },
+    {
+      "jornada": 10,
+      "home": "UD Logroñés",
+      "away": "CD Mirandés",
+      "date": "2026-11-01"
+    },
+    {
+      "jornada": 10,
+      "home": "Zamora CF",
+      "away": "RC Deportivo Fabril",
+      "date": "2026-11-01"
+    },
+    {
+      "jornada": 11,
+      "home": "Arenas Club",
+      "away": "RC Deportivo Fabril",
+      "date": "2026-11-08"
+    },
+    {
+      "jornada": 11,
+      "home": "Barakaldo CF",
+      "away": "Real Unión",
+      "date": "2026-11-08"
+    },
+    {
+      "jornada": 11,
+      "home": "CP Cacereño",
+      "away": "CD Lugo",
+      "date": "2026-11-08"
+    },
+    {
+      "jornada": 11,
+      "home": "CyD Leonesa",
+      "away": "SD Ponferradina",
+      "date": "2026-11-08"
+    },
+    {
+      "jornada": 11,
+      "home": "Racing Ferrol",
+      "away": "UD Logroñés",
+      "date": "2026-11-08"
+    },
+    {
+      "jornada": 11,
+      "home": "AD Mérida",
+      "away": "Bilbao Athletic",
+      "date": "2026-11-08"
+    },
+    {
+      "jornada": 11,
+      "home": "CD Mirandés",
+      "away": "CD Coria",
+      "date": "2026-11-08"
+    },
+    {
+      "jornada": 11,
+      "home": "Pontevedra CF",
+      "away": "UD Ourense",
+      "date": "2026-11-08"
+    },
+    {
+      "jornada": 11,
+      "home": "Real Avilés",
+      "away": "CD Extremadura",
+      "date": "2026-11-08"
+    },
+    {
+      "jornada": 11,
+      "home": "Unionistas",
+      "away": "Zamora CF",
+      "date": "2026-11-08"
+    },
+    {
+      "jornada": 12,
+      "home": "Bilbao Athletic",
+      "away": "Racing Ferrol",
+      "date": "2026-11-15"
+    },
+    {
+      "jornada": 12,
+      "home": "CD Coria",
+      "away": "Unionistas",
+      "date": "2026-11-15"
+    },
+    {
+      "jornada": 12,
+      "home": "RC Deportivo Fabril",
+      "away": "Barakaldo CF",
+      "date": "2026-11-15"
+    },
+    {
+      "jornada": 12,
+      "home": "CD Extremadura",
+      "away": "Pontevedra CF",
+      "date": "2026-11-15"
+    },
+    {
+      "jornada": 12,
+      "home": "CD Lugo",
+      "away": "CD Mirandés",
+      "date": "2026-11-15"
+    },
+    {
+      "jornada": 12,
+      "home": "UD Ourense",
+      "away": "AD Mérida",
+      "date": "2026-11-15"
+    },
+    {
+      "jornada": 12,
+      "home": "Real Unión",
+      "away": "CyD Leonesa",
+      "date": "2026-11-15"
+    },
+    {
+      "jornada": 12,
+      "home": "SD Ponferradina",
+      "away": "CP Cacereño",
+      "date": "2026-11-15"
+    },
+    {
+      "jornada": 12,
+      "home": "UD Logroñés",
+      "away": "Arenas Club",
+      "date": "2026-11-15"
+    },
+    {
+      "jornada": 12,
+      "home": "Zamora CF",
+      "away": "Real Avilés",
+      "date": "2026-11-15"
+    },
+    {
+      "jornada": 13,
+      "home": "Arenas Club",
+      "away": "Real Avilés",
+      "date": "2026-11-22"
+    },
+    {
+      "jornada": 13,
+      "home": "Barakaldo CF",
+      "away": "Unionistas",
+      "date": "2026-11-22"
+    },
+    {
+      "jornada": 13,
+      "home": "CP Cacereño",
+      "away": "UD Logroñés",
+      "date": "2026-11-22"
+    },
+    {
+      "jornada": 13,
+      "home": "CyD Leonesa",
+      "away": "Zamora CF",
+      "date": "2026-11-22"
+    },
+    {
+      "jornada": 13,
+      "home": "RC Deportivo Fabril",
+      "away": "CD Coria",
+      "date": "2026-11-22"
+    },
+    {
+      "jornada": 13,
+      "home": "AD Mérida",
+      "away": "Real Unión",
+      "date": "2026-11-22"
+    },
+    {
+      "jornada": 13,
+      "home": "CD Mirandés",
+      "away": "Bilbao Athletic",
+      "date": "2026-11-22"
+    },
+    {
+      "jornada": 13,
+      "home": "UD Ourense",
+      "away": "Racing Ferrol",
+      "date": "2026-11-22"
+    },
+    {
+      "jornada": 13,
+      "home": "Pontevedra CF",
+      "away": "CD Lugo",
+      "date": "2026-11-22"
+    },
+    {
+      "jornada": 13,
+      "home": "SD Ponferradina",
+      "away": "CD Extremadura",
+      "date": "2026-11-22"
+    },
+    {
+      "jornada": 14,
+      "home": "Bilbao Athletic",
+      "away": "CyD Leonesa",
+      "date": "2026-11-29"
+    },
+    {
+      "jornada": 14,
+      "home": "CD Coria",
+      "away": "SD Ponferradina",
+      "date": "2026-11-29"
+    },
+    {
+      "jornada": 14,
+      "home": "CD Extremadura",
+      "away": "CP Cacereño",
+      "date": "2026-11-29"
+    },
+    {
+      "jornada": 14,
+      "home": "Racing Ferrol",
+      "away": "AD Mérida",
+      "date": "2026-11-29"
+    },
+    {
+      "jornada": 14,
+      "home": "CD Lugo",
+      "away": "UD Ourense",
+      "date": "2026-11-29"
+    },
+    {
+      "jornada": 14,
+      "home": "Real Avilés",
+      "away": "CD Mirandés",
+      "date": "2026-11-29"
+    },
+    {
+      "jornada": 14,
+      "home": "Real Unión",
+      "away": "Arenas Club",
+      "date": "2026-11-29"
+    },
+    {
+      "jornada": 14,
+      "home": "UD Logroñés",
+      "away": "Barakaldo CF",
+      "date": "2026-11-29"
+    },
+    {
+      "jornada": 14,
+      "home": "Unionistas",
+      "away": "RC Deportivo Fabril",
+      "date": "2026-11-29"
+    },
+    {
+      "jornada": 14,
+      "home": "Zamora CF",
+      "away": "Pontevedra CF",
+      "date": "2026-11-29"
+    },
+    {
+      "jornada": 15,
+      "home": "Arenas Club",
+      "away": "CD Lugo",
+      "date": "2026-12-06"
+    },
+    {
+      "jornada": 15,
+      "home": "Barakaldo CF",
+      "away": "Bilbao Athletic",
+      "date": "2026-12-06"
+    },
+    {
+      "jornada": 15,
+      "home": "CP Cacereño",
+      "away": "Real Unión",
+      "date": "2026-12-06"
+    },
+    {
+      "jornada": 15,
+      "home": "CyD Leonesa",
+      "away": "Racing Ferrol",
+      "date": "2026-12-06"
+    },
+    {
+      "jornada": 15,
+      "home": "RC Deportivo Fabril",
+      "away": "Real Avilés",
+      "date": "2026-12-06"
+    },
+    {
+      "jornada": 15,
+      "home": "AD Mérida",
+      "away": "Zamora CF",
+      "date": "2026-12-06"
+    },
+    {
+      "jornada": 15,
+      "home": "CD Mirandés",
+      "away": "CD Extremadura",
+      "date": "2026-12-06"
+    },
+    {
+      "jornada": 15,
+      "home": "UD Ourense",
+      "away": "CD Coria",
+      "date": "2026-12-06"
+    },
+    {
+      "jornada": 15,
+      "home": "Pontevedra CF",
+      "away": "Unionistas",
+      "date": "2026-12-06"
+    },
+    {
+      "jornada": 15,
+      "home": "SD Ponferradina",
+      "away": "UD Logroñés",
+      "date": "2026-12-06"
+    },
+    {
+      "jornada": 16,
+      "home": "Bilbao Athletic",
+      "away": "UD Ourense",
+      "date": "2026-12-13"
+    },
+    {
+      "jornada": 16,
+      "home": "CD Coria",
+      "away": "UD Logroñés",
+      "date": "2026-12-13"
+    },
+    {
+      "jornada": 16,
+      "home": "CD Extremadura",
+      "away": "Arenas Club",
+      "date": "2026-12-13"
+    },
+    {
+      "jornada": 16,
+      "home": "Racing Ferrol",
+      "away": "CP Cacereño",
+      "date": "2026-12-13"
+    },
+    {
+      "jornada": 16,
+      "home": "CD Lugo",
+      "away": "CyD Leonesa",
+      "date": "2026-12-13"
+    },
+    {
+      "jornada": 16,
+      "home": "CD Mirandés",
+      "away": "RC Deportivo Fabril",
+      "date": "2026-12-13"
+    },
+    {
+      "jornada": 16,
+      "home": "Real Avilés",
+      "away": "AD Mérida",
+      "date": "2026-12-13"
+    },
+    {
+      "jornada": 16,
+      "home": "Real Unión",
+      "away": "Pontevedra CF",
+      "date": "2026-12-13"
+    },
+    {
+      "jornada": 16,
+      "home": "Unionistas",
+      "away": "SD Ponferradina",
+      "date": "2026-12-13"
+    },
+    {
+      "jornada": 16,
+      "home": "Zamora CF",
+      "away": "Barakaldo CF",
+      "date": "2026-12-13"
+    },
+    {
+      "jornada": 17,
+      "home": "Arenas Club",
+      "away": "Unionistas",
+      "date": "2026-12-20"
+    },
+    {
+      "jornada": 17,
+      "home": "CP Cacereño",
+      "away": "CD Coria",
+      "date": "2026-12-20"
+    },
+    {
+      "jornada": 17,
+      "home": "CyD Leonesa",
+      "away": "Real Avilés",
+      "date": "2026-12-20"
+    },
+    {
+      "jornada": 17,
+      "home": "Racing Ferrol",
+      "away": "Zamora CF",
+      "date": "2026-12-20"
+    },
+    {
+      "jornada": 17,
+      "home": "CD Lugo",
+      "away": "Barakaldo CF",
+      "date": "2026-12-20"
+    },
+    {
+      "jornada": 17,
+      "home": "AD Mérida",
+      "away": "CD Extremadura",
+      "date": "2026-12-20"
+    },
+    {
+      "jornada": 17,
+      "home": "UD Ourense",
+      "away": "RC Deportivo Fabril",
+      "date": "2026-12-20"
+    },
+    {
+      "jornada": 17,
+      "home": "Pontevedra CF",
+      "away": "CD Mirandés",
+      "date": "2026-12-20"
+    },
+    {
+      "jornada": 17,
+      "home": "SD Ponferradina",
+      "away": "Bilbao Athletic",
+      "date": "2026-12-20"
+    },
+    {
+      "jornada": 17,
+      "home": "UD Logroñés",
+      "away": "Real Unión",
+      "date": "2026-12-20"
+    },
+    {
+      "jornada": 18,
+      "home": "Bilbao Athletic",
+      "away": "CD Lugo",
+      "date": "2027-01-03"
+    },
+    {
+      "jornada": 18,
+      "home": "Barakaldo CF",
+      "away": "AD Mérida",
+      "date": "2027-01-03"
+    },
+    {
+      "jornada": 18,
+      "home": "CD Coria",
+      "away": "Racing Ferrol",
+      "date": "2027-01-03"
+    },
+    {
+      "jornada": 18,
+      "home": "RC Deportivo Fabril",
+      "away": "Pontevedra CF",
+      "date": "2027-01-03"
+    },
+    {
+      "jornada": 18,
+      "home": "CD Extremadura",
+      "away": "UD Ourense",
+      "date": "2027-01-03"
+    },
+    {
+      "jornada": 18,
+      "home": "CD Mirandés",
+      "away": "CyD Leonesa",
+      "date": "2027-01-03"
+    },
+    {
+      "jornada": 18,
+      "home": "Real Avilés",
+      "away": "CP Cacereño",
+      "date": "2027-01-03"
+    },
+    {
+      "jornada": 18,
+      "home": "SD Ponferradina",
+      "away": "Arenas Club",
+      "date": "2027-01-03"
+    },
+    {
+      "jornada": 18,
+      "home": "Unionistas",
+      "away": "UD Logroñés",
+      "date": "2027-01-03"
+    },
+    {
+      "jornada": 18,
+      "home": "Zamora CF",
+      "away": "Real Unión",
+      "date": "2027-01-03"
+    },
+    {
+      "jornada": 19,
+      "home": "Arenas Club",
+      "away": "CD Mirandés",
+      "date": "2027-01-10"
+    },
+    {
+      "jornada": 19,
+      "home": "CP Cacereño",
+      "away": "Barakaldo CF",
+      "date": "2027-01-10"
+    },
+    {
+      "jornada": 19,
+      "home": "CyD Leonesa",
+      "away": "RC Deportivo Fabril",
+      "date": "2027-01-10"
+    },
+    {
+      "jornada": 19,
+      "home": "Racing Ferrol",
+      "away": "Real Avilés",
+      "date": "2027-01-10"
+    },
+    {
+      "jornada": 19,
+      "home": "CD Lugo",
+      "away": "CD Extremadura",
+      "date": "2027-01-10"
+    },
+    {
+      "jornada": 19,
+      "home": "AD Mérida",
+      "away": "Unionistas",
+      "date": "2027-01-10"
+    },
+    {
+      "jornada": 19,
+      "home": "UD Ourense",
+      "away": "Zamora CF",
+      "date": "2027-01-10"
+    },
+    {
+      "jornada": 19,
+      "home": "Pontevedra CF",
+      "away": "CD Coria",
+      "date": "2027-01-10"
+    },
+    {
+      "jornada": 19,
+      "home": "Real Unión",
+      "away": "SD Ponferradina",
+      "date": "2027-01-10"
+    },
+    {
+      "jornada": 19,
+      "home": "UD Logroñés",
+      "away": "Bilbao Athletic",
+      "date": "2027-01-10"
+    },
+    {
+      "jornada": 20,
+      "home": "Bilbao Athletic",
+      "away": "Arenas Club",
+      "date": "2027-01-17"
+    },
+    {
+      "jornada": 20,
+      "home": "Barakaldo CF",
+      "away": "Racing Ferrol",
+      "date": "2027-01-17"
+    },
+    {
+      "jornada": 20,
+      "home": "CD Coria",
+      "away": "CD Lugo",
+      "date": "2027-01-17"
+    },
+    {
+      "jornada": 20,
+      "home": "RC Deportivo Fabril",
+      "away": "AD Mérida",
+      "date": "2027-01-17"
+    },
+    {
+      "jornada": 20,
+      "home": "CD Extremadura",
+      "away": "UD Logroñés",
+      "date": "2027-01-17"
+    },
+    {
+      "jornada": 20,
+      "home": "Pontevedra CF",
+      "away": "CyD Leonesa",
+      "date": "2027-01-17"
+    },
+    {
+      "jornada": 20,
+      "home": "Real Avilés",
+      "away": "Real Unión",
+      "date": "2027-01-17"
+    },
+    {
+      "jornada": 20,
+      "home": "SD Ponferradina",
+      "away": "UD Ourense",
+      "date": "2027-01-17"
+    },
+    {
+      "jornada": 20,
+      "home": "Unionistas",
+      "away": "CD Mirandés",
+      "date": "2027-01-17"
+    },
+    {
+      "jornada": 20,
+      "home": "Zamora CF",
+      "away": "CP Cacereño",
+      "date": "2027-01-17"
+    },
+    {
+      "jornada": 21,
+      "home": "Arenas Club",
+      "away": "CD Coria",
+      "date": "2027-01-24"
+    },
+    {
+      "jornada": 21,
+      "home": "CP Cacereño",
+      "away": "Bilbao Athletic",
+      "date": "2027-01-24"
+    },
+    {
+      "jornada": 21,
+      "home": "CyD Leonesa",
+      "away": "Barakaldo CF",
+      "date": "2027-01-24"
+    },
+    {
+      "jornada": 21,
+      "home": "Racing Ferrol",
+      "away": "RC Deportivo Fabril",
+      "date": "2027-01-24"
+    },
+    {
+      "jornada": 21,
+      "home": "CD Lugo",
+      "away": "Real Avilés",
+      "date": "2027-01-24"
+    },
+    {
+      "jornada": 21,
+      "home": "AD Mérida",
+      "away": "Pontevedra CF",
+      "date": "2027-01-24"
+    },
+    {
+      "jornada": 21,
+      "home": "CD Mirandés",
+      "away": "SD Ponferradina",
+      "date": "2027-01-24"
+    },
+    {
+      "jornada": 21,
+      "home": "UD Ourense",
+      "away": "Unionistas",
+      "date": "2027-01-24"
+    },
+    {
+      "jornada": 21,
+      "home": "Real Unión",
+      "away": "CD Extremadura",
+      "date": "2027-01-24"
+    },
+    {
+      "jornada": 21,
+      "home": "UD Logroñés",
+      "away": "Zamora CF",
+      "date": "2027-01-24"
+    },
+    {
+      "jornada": 22,
+      "home": "Bilbao Athletic",
+      "away": "AD Mérida",
+      "date": "2027-01-31"
+    },
+    {
+      "jornada": 22,
+      "home": "CD Coria",
+      "away": "CyD Leonesa",
+      "date": "2027-01-31"
+    },
+    {
+      "jornada": 22,
+      "home": "RC Deportivo Fabril",
+      "away": "Arenas Club",
+      "date": "2027-01-31"
+    },
+    {
+      "jornada": 22,
+      "home": "CD Extremadura",
+      "away": "Real Avilés",
+      "date": "2027-01-31"
+    },
+    {
+      "jornada": 22,
+      "home": "UD Ourense",
+      "away": "Real Unión",
+      "date": "2027-01-31"
+    },
+    {
+      "jornada": 22,
+      "home": "Pontevedra CF",
+      "away": "Barakaldo CF",
+      "date": "2027-01-31"
+    },
+    {
+      "jornada": 22,
+      "home": "SD Ponferradina",
+      "away": "Racing Ferrol",
+      "date": "2027-01-31"
+    },
+    {
+      "jornada": 22,
+      "home": "UD Logroñés",
+      "away": "CD Lugo",
+      "date": "2027-01-31"
+    },
+    {
+      "jornada": 22,
+      "home": "Unionistas",
+      "away": "CP Cacereño",
+      "date": "2027-01-31"
+    },
+    {
+      "jornada": 22,
+      "home": "Zamora CF",
+      "away": "CD Mirandés",
+      "date": "2027-01-31"
+    },
+    {
+      "jornada": 23,
+      "home": "Bilbao Athletic",
+      "away": "CD Coria",
+      "date": "2027-02-06"
+    },
+    {
+      "jornada": 23,
+      "home": "Barakaldo CF",
+      "away": "RC Deportivo Fabril",
+      "date": "2027-02-06"
+    },
+    {
+      "jornada": 23,
+      "home": "CP Cacereño",
+      "away": "Pontevedra CF",
+      "date": "2027-02-06"
+    },
+    {
+      "jornada": 23,
+      "home": "CyD Leonesa",
+      "away": "CD Extremadura",
+      "date": "2027-02-06"
+    },
+    {
+      "jornada": 23,
+      "home": "Racing Ferrol",
+      "away": "UD Ourense",
+      "date": "2027-02-06"
+    },
+    {
+      "jornada": 23,
+      "home": "CD Lugo",
+      "away": "Zamora CF",
+      "date": "2027-02-06"
+    },
+    {
+      "jornada": 23,
+      "home": "AD Mérida",
+      "away": "SD Ponferradina",
+      "date": "2027-02-06"
+    },
+    {
+      "jornada": 23,
+      "home": "CD Mirandés",
+      "away": "UD Logroñés",
+      "date": "2027-02-06"
+    },
+    {
+      "jornada": 23,
+      "home": "Real Avilés",
+      "away": "Arenas Club",
+      "date": "2027-02-06"
+    },
+    {
+      "jornada": 23,
+      "home": "Real Unión",
+      "away": "Unionistas",
+      "date": "2027-02-06"
+    },
+    {
+      "jornada": 24,
+      "home": "Arenas Club",
+      "away": "CyD Leonesa",
+      "date": "2027-02-14"
+    },
+    {
+      "jornada": 24,
+      "home": "CD Coria",
+      "away": "Real Unión",
+      "date": "2027-02-14"
+    },
+    {
+      "jornada": 24,
+      "home": "RC Deportivo Fabril",
+      "away": "Bilbao Athletic",
+      "date": "2027-02-14"
+    },
+    {
+      "jornada": 24,
+      "home": "CD Extremadura",
+      "away": "Barakaldo CF",
+      "date": "2027-02-14"
+    },
+    {
+      "jornada": 24,
+      "home": "CD Mirandés",
+      "away": "CP Cacereño",
+      "date": "2027-02-14"
+    },
+    {
+      "jornada": 24,
+      "home": "UD Ourense",
+      "away": "CD Lugo",
+      "date": "2027-02-14"
+    },
+    {
+      "jornada": 24,
+      "home": "Pontevedra CF",
+      "away": "Racing Ferrol",
+      "date": "2027-02-14"
+    },
+    {
+      "jornada": 24,
+      "home": "SD Ponferradina",
+      "away": "Zamora CF",
+      "date": "2027-02-14"
+    },
+    {
+      "jornada": 24,
+      "home": "UD Logroñés",
+      "away": "AD Mérida",
+      "date": "2027-02-14"
+    },
+    {
+      "jornada": 24,
+      "home": "Unionistas",
+      "away": "Real Avilés",
+      "date": "2027-02-14"
+    },
+    {
+      "jornada": 25,
+      "home": "Bilbao Athletic",
+      "away": "CD Mirandés",
+      "date": "2027-02-21"
+    },
+    {
+      "jornada": 25,
+      "home": "Barakaldo CF",
+      "away": "UD Logroñés",
+      "date": "2027-02-21"
+    },
+    {
+      "jornada": 25,
+      "home": "CP Cacereño",
+      "away": "SD Ponferradina",
+      "date": "2027-02-21"
+    },
+    {
+      "jornada": 25,
+      "home": "CyD Leonesa",
+      "away": "Unionistas",
+      "date": "2027-02-21"
+    },
+    {
+      "jornada": 25,
+      "home": "Racing Ferrol",
+      "away": "Arenas Club",
+      "date": "2027-02-21"
+    },
+    {
+      "jornada": 25,
+      "home": "CD Lugo",
+      "away": "Pontevedra CF",
+      "date": "2027-02-21"
+    },
+    {
+      "jornada": 25,
+      "home": "AD Mérida",
+      "away": "UD Ourense",
+      "date": "2027-02-21"
+    },
+    {
+      "jornada": 25,
+      "home": "Real Avilés",
+      "away": "CD Coria",
+      "date": "2027-02-21"
+    },
+    {
+      "jornada": 25,
+      "home": "Real Unión",
+      "away": "RC Deportivo Fabril",
+      "date": "2027-02-21"
+    },
+    {
+      "jornada": 25,
+      "home": "Zamora CF",
+      "away": "CD Extremadura",
+      "date": "2027-02-21"
+    },
+    {
+      "jornada": 26,
+      "home": "Arenas Club",
+      "away": "Real Unión",
+      "date": "2027-02-28"
+    },
+    {
+      "jornada": 26,
+      "home": "CP Cacereño",
+      "away": "Racing Ferrol",
+      "date": "2027-02-28"
+    },
+    {
+      "jornada": 26,
+      "home": "RC Deportivo Fabril",
+      "away": "CD Lugo",
+      "date": "2027-02-28"
+    },
+    {
+      "jornada": 26,
+      "home": "CD Extremadura",
+      "away": "CD Coria",
+      "date": "2027-02-28"
+    },
+    {
+      "jornada": 26,
+      "home": "CD Mirandés",
+      "away": "AD Mérida",
+      "date": "2027-02-28"
+    },
+    {
+      "jornada": 26,
+      "home": "UD Ourense",
+      "away": "Bilbao Athletic",
+      "date": "2027-02-28"
+    },
+    {
+      "jornada": 26,
+      "home": "SD Ponferradina",
+      "away": "Pontevedra CF",
+      "date": "2027-02-28"
+    },
+    {
+      "jornada": 26,
+      "home": "UD Logroñés",
+      "away": "Real Avilés",
+      "date": "2027-02-28"
+    },
+    {
+      "jornada": 26,
+      "home": "Unionistas",
+      "away": "Barakaldo CF",
+      "date": "2027-02-28"
+    },
+    {
+      "jornada": 26,
+      "home": "Zamora CF",
+      "away": "CyD Leonesa",
+      "date": "2027-02-28"
+    },
+    {
+      "jornada": 27,
+      "home": "Bilbao Athletic",
+      "away": "SD Ponferradina",
+      "date": "2027-03-07"
+    },
+    {
+      "jornada": 27,
+      "home": "Barakaldo CF",
+      "away": "UD Ourense",
+      "date": "2027-03-07"
+    },
+    {
+      "jornada": 27,
+      "home": "CD Coria",
+      "away": "RC Deportivo Fabril",
+      "date": "2027-03-07"
+    },
+    {
+      "jornada": 27,
+      "home": "CyD Leonesa",
+      "away": "UD Logroñés",
+      "date": "2027-03-07"
+    },
+    {
+      "jornada": 27,
+      "home": "Racing Ferrol",
+      "away": "CD Mirandés",
+      "date": "2027-03-07"
+    },
+    {
+      "jornada": 27,
+      "home": "CD Lugo",
+      "away": "Unionistas",
+      "date": "2027-03-07"
+    },
+    {
+      "jornada": 27,
+      "home": "AD Mérida",
+      "away": "Arenas Club",
+      "date": "2027-03-07"
+    },
+    {
+      "jornada": 27,
+      "home": "Pontevedra CF",
+      "away": "CD Extremadura",
+      "date": "2027-03-07"
+    },
+    {
+      "jornada": 27,
+      "home": "Real Avilés",
+      "away": "Zamora CF",
+      "date": "2027-03-07"
+    },
+    {
+      "jornada": 27,
+      "home": "Real Unión",
+      "away": "CP Cacereño",
+      "date": "2027-03-07"
+    },
+    {
+      "jornada": 28,
+      "home": "Arenas Club",
+      "away": "Barakaldo CF",
+      "date": "2027-03-14"
+    },
+    {
+      "jornada": 28,
+      "home": "CD Coria",
+      "away": "CP Cacereño",
+      "date": "2027-03-14"
+    },
+    {
+      "jornada": 28,
+      "home": "CyD Leonesa",
+      "away": "CD Lugo",
+      "date": "2027-03-14"
+    },
+    {
+      "jornada": 28,
+      "home": "RC Deportivo Fabril",
+      "away": "Unionistas",
+      "date": "2027-03-14"
+    },
+    {
+      "jornada": 28,
+      "home": "CD Extremadura",
+      "away": "SD Ponferradina",
+      "date": "2027-03-14"
+    },
+    {
+      "jornada": 28,
+      "home": "CD Mirandés",
+      "away": "Pontevedra CF",
+      "date": "2027-03-14"
+    },
+    {
+      "jornada": 28,
+      "home": "UD Ourense",
+      "away": "Real Avilés",
+      "date": "2027-03-14"
+    },
+    {
+      "jornada": 28,
+      "home": "Real Unión",
+      "away": "Bilbao Athletic",
+      "date": "2027-03-14"
+    },
+    {
+      "jornada": 28,
+      "home": "UD Logroñés",
+      "away": "Racing Ferrol",
+      "date": "2027-03-14"
+    },
+    {
+      "jornada": 28,
+      "home": "Zamora CF",
+      "away": "AD Mérida",
+      "date": "2027-03-14"
+    },
+    {
+      "jornada": 29,
+      "home": "Arenas Club",
+      "away": "CD Extremadura",
+      "date": "2027-03-21"
+    },
+    {
+      "jornada": 29,
+      "home": "Barakaldo CF",
+      "away": "Zamora CF",
+      "date": "2027-03-21"
+    },
+    {
+      "jornada": 29,
+      "home": "CP Cacereño",
+      "away": "UD Ourense",
+      "date": "2027-03-21"
+    },
+    {
+      "jornada": 29,
+      "home": "Racing Ferrol",
+      "away": "Bilbao Athletic",
+      "date": "2027-03-21"
+    },
+    {
+      "jornada": 29,
+      "home": "AD Mérida",
+      "away": "CD Lugo",
+      "date": "2027-03-21"
+    },
+    {
+      "jornada": 29,
+      "home": "CD Mirandés",
+      "away": "Real Unión",
+      "date": "2027-03-21"
+    },
+    {
+      "jornada": 29,
+      "home": "Pontevedra CF",
+      "away": "UD Logroñés",
+      "date": "2027-03-21"
+    },
+    {
+      "jornada": 29,
+      "home": "Real Avilés",
+      "away": "RC Deportivo Fabril",
+      "date": "2027-03-21"
+    },
+    {
+      "jornada": 29,
+      "home": "SD Ponferradina",
+      "away": "CyD Leonesa",
+      "date": "2027-03-21"
+    },
+    {
+      "jornada": 29,
+      "home": "Unionistas",
+      "away": "CD Coria",
+      "date": "2027-03-21"
+    },
+    {
+      "jornada": 30,
+      "home": "Bilbao Athletic",
+      "away": "Pontevedra CF",
+      "date": "2027-03-28"
+    },
+    {
+      "jornada": 30,
+      "home": "CD Coria",
+      "away": "Zamora CF",
+      "date": "2027-03-28"
+    },
+    {
+      "jornada": 30,
+      "home": "RC Deportivo Fabril",
+      "away": "CyD Leonesa",
+      "date": "2027-03-28"
+    },
+    {
+      "jornada": 30,
+      "home": "CD Extremadura",
+      "away": "AD Mérida",
+      "date": "2027-03-28"
+    },
+    {
+      "jornada": 30,
+      "home": "CD Lugo",
+      "away": "SD Ponferradina",
+      "date": "2027-03-28"
+    },
+    {
+      "jornada": 30,
+      "home": "UD Ourense",
+      "away": "CD Mirandés",
+      "date": "2027-03-28"
+    },
+    {
+      "jornada": 30,
+      "home": "Real Avilés",
+      "away": "Barakaldo CF",
+      "date": "2027-03-28"
+    },
+    {
+      "jornada": 30,
+      "home": "Real Unión",
+      "away": "Racing Ferrol",
+      "date": "2027-03-28"
+    },
+    {
+      "jornada": 30,
+      "home": "UD Logroñés",
+      "away": "CP Cacereño",
+      "date": "2027-03-28"
+    },
+    {
+      "jornada": 30,
+      "home": "Unionistas",
+      "away": "Arenas Club",
+      "date": "2027-03-28"
+    },
+    {
+      "jornada": 31,
+      "home": "Bilbao Athletic",
+      "away": "UD Logroñés",
+      "date": "2027-04-04"
+    },
+    {
+      "jornada": 31,
+      "home": "Barakaldo CF",
+      "away": "CD Coria",
+      "date": "2027-04-04"
+    },
+    {
+      "jornada": 31,
+      "home": "CP Cacereño",
+      "away": "CD Extremadura",
+      "date": "2027-04-04"
+    },
+    {
+      "jornada": 31,
+      "home": "CyD Leonesa",
+      "away": "UD Ourense",
+      "date": "2027-04-04"
+    },
+    {
+      "jornada": 31,
+      "home": "Racing Ferrol",
+      "away": "CD Lugo",
+      "date": "2027-04-04"
+    },
+    {
+      "jornada": 31,
+      "home": "AD Mérida",
+      "away": "Real Avilés",
+      "date": "2027-04-04"
+    },
+    {
+      "jornada": 31,
+      "home": "CD Mirandés",
+      "away": "Arenas Club",
+      "date": "2027-04-04"
+    },
+    {
+      "jornada": 31,
+      "home": "Pontevedra CF",
+      "away": "RC Deportivo Fabril",
+      "date": "2027-04-04"
+    },
+    {
+      "jornada": 31,
+      "home": "SD Ponferradina",
+      "away": "Real Unión",
+      "date": "2027-04-04"
+    },
+    {
+      "jornada": 31,
+      "home": "Zamora CF",
+      "away": "Unionistas",
+      "date": "2027-04-04"
+    },
+    {
+      "jornada": 32,
+      "home": "Arenas Club",
+      "away": "CP Cacereño",
+      "date": "2027-04-11"
+    },
+    {
+      "jornada": 32,
+      "home": "CD Coria",
+      "away": "AD Mérida",
+      "date": "2027-04-11"
+    },
+    {
+      "jornada": 32,
+      "home": "RC Deportivo Fabril",
+      "away": "Zamora CF",
+      "date": "2027-04-11"
+    },
+    {
+      "jornada": 32,
+      "home": "CD Extremadura",
+      "away": "CD Mirandés",
+      "date": "2027-04-11"
+    },
+    {
+      "jornada": 32,
+      "home": "CD Lugo",
+      "away": "Bilbao Athletic",
+      "date": "2027-04-11"
+    },
+    {
+      "jornada": 32,
+      "home": "UD Ourense",
+      "away": "Pontevedra CF",
+      "date": "2027-04-11"
+    },
+    {
+      "jornada": 32,
+      "home": "Real Avilés",
+      "away": "CyD Leonesa",
+      "date": "2027-04-11"
+    },
+    {
+      "jornada": 32,
+      "home": "Real Unión",
+      "away": "Barakaldo CF",
+      "date": "2027-04-11"
+    },
+    {
+      "jornada": 32,
+      "home": "UD Logroñés",
+      "away": "SD Ponferradina",
+      "date": "2027-04-11"
+    },
+    {
+      "jornada": 32,
+      "home": "Unionistas",
+      "away": "Racing Ferrol",
+      "date": "2027-04-11"
+    },
+    {
+      "jornada": 33,
+      "home": "Bilbao Athletic",
+      "away": "Barakaldo CF",
+      "date": "2027-04-18"
+    },
+    {
+      "jornada": 33,
+      "home": "CP Cacereño",
+      "away": "AD Mérida",
+      "date": "2027-04-18"
+    },
+    {
+      "jornada": 33,
+      "home": "CyD Leonesa",
+      "away": "Real Unión",
+      "date": "2027-04-18"
+    },
+    {
+      "jornada": 33,
+      "home": "CD Extremadura",
+      "away": "RC Deportivo Fabril",
+      "date": "2027-04-18"
+    },
+    {
+      "jornada": 33,
+      "home": "Racing Ferrol",
+      "away": "CD Coria",
+      "date": "2027-04-18"
+    },
+    {
+      "jornada": 33,
+      "home": "CD Mirandés",
+      "away": "CD Lugo",
+      "date": "2027-04-18"
+    },
+    {
+      "jornada": 33,
+      "home": "Pontevedra CF",
+      "away": "Real Avilés",
+      "date": "2027-04-18"
+    },
+    {
+      "jornada": 33,
+      "home": "SD Ponferradina",
+      "away": "Unionistas",
+      "date": "2027-04-18"
+    },
+    {
+      "jornada": 33,
+      "home": "UD Logroñés",
+      "away": "UD Ourense",
+      "date": "2027-04-18"
+    },
+    {
+      "jornada": 33,
+      "home": "Zamora CF",
+      "away": "Arenas Club",
+      "date": "2027-04-18"
+    },
+    {
+      "jornada": 34,
+      "home": "Arenas Club",
+      "away": "UD Logroñés",
+      "date": "2027-04-25"
+    },
+    {
+      "jornada": 34,
+      "home": "Barakaldo CF",
+      "away": "SD Ponferradina",
+      "date": "2027-04-25"
+    },
+    {
+      "jornada": 34,
+      "home": "CD Coria",
+      "away": "Pontevedra CF",
+      "date": "2027-04-25"
+    },
+    {
+      "jornada": 34,
+      "home": "CyD Leonesa",
+      "away": "CD Mirandés",
+      "date": "2027-04-25"
+    },
+    {
+      "jornada": 34,
+      "home": "RC Deportivo Fabril",
+      "away": "UD Ourense",
+      "date": "2027-04-25"
+    },
+    {
+      "jornada": 34,
+      "home": "CD Lugo",
+      "away": "CP Cacereño",
+      "date": "2027-04-25"
+    },
+    {
+      "jornada": 34,
+      "home": "AD Mérida",
+      "away": "Racing Ferrol",
+      "date": "2027-04-25"
+    },
+    {
+      "jornada": 34,
+      "home": "Real Avilés",
+      "away": "Bilbao Athletic",
+      "date": "2027-04-25"
+    },
+    {
+      "jornada": 34,
+      "home": "Real Unión",
+      "away": "Zamora CF",
+      "date": "2027-04-25"
+    },
+    {
+      "jornada": 34,
+      "home": "Unionistas",
+      "away": "CD Extremadura",
+      "date": "2027-04-25"
+    },
+    {
+      "jornada": 35,
+      "home": "Bilbao Athletic",
+      "away": "Unionistas",
+      "date": "2027-05-02"
+    },
+    {
+      "jornada": 35,
+      "home": "CP Cacereño",
+      "away": "Real Avilés",
+      "date": "2027-05-02"
+    },
+    {
+      "jornada": 35,
+      "home": "Racing Ferrol",
+      "away": "CD Extremadura",
+      "date": "2027-05-02"
+    },
+    {
+      "jornada": 35,
+      "home": "CD Lugo",
+      "away": "Real Unión",
+      "date": "2027-05-02"
+    },
+    {
+      "jornada": 35,
+      "home": "AD Mérida",
+      "away": "CyD Leonesa",
+      "date": "2027-05-02"
+    },
+    {
+      "jornada": 35,
+      "home": "CD Mirandés",
+      "away": "Barakaldo CF",
+      "date": "2027-05-02"
+    },
+    {
+      "jornada": 35,
+      "home": "UD Ourense",
+      "away": "Arenas Club",
+      "date": "2027-05-02"
+    },
+    {
+      "jornada": 35,
+      "home": "Pontevedra CF",
+      "away": "Zamora CF",
+      "date": "2027-05-02"
+    },
+    {
+      "jornada": 35,
+      "home": "SD Ponferradina",
+      "away": "RC Deportivo Fabril",
+      "date": "2027-05-02"
+    },
+    {
+      "jornada": 35,
+      "home": "UD Logroñés",
+      "away": "CD Coria",
+      "date": "2027-05-02"
+    },
+    {
+      "jornada": 36,
+      "home": "Arenas Club",
+      "away": "SD Ponferradina",
+      "date": "2027-05-09"
+    },
+    {
+      "jornada": 36,
+      "home": "Barakaldo CF",
+      "away": "CD Lugo",
+      "date": "2027-05-09"
+    },
+    {
+      "jornada": 36,
+      "home": "CD Coria",
+      "away": "CD Mirandés",
+      "date": "2027-05-09"
+    },
+    {
+      "jornada": 36,
+      "home": "CyD Leonesa",
+      "away": "CP Cacereño",
+      "date": "2027-05-09"
+    },
+    {
+      "jornada": 36,
+      "home": "RC Deportivo Fabril",
+      "away": "UD Logroñés",
+      "date": "2027-05-09"
+    },
+    {
+      "jornada": 36,
+      "home": "CD Extremadura",
+      "away": "Bilbao Athletic",
+      "date": "2027-05-09"
+    },
+    {
+      "jornada": 36,
+      "home": "Real Avilés",
+      "away": "Racing Ferrol",
+      "date": "2027-05-09"
+    },
+    {
+      "jornada": 36,
+      "home": "Real Unión",
+      "away": "AD Mérida",
+      "date": "2027-05-09"
+    },
+    {
+      "jornada": 36,
+      "home": "Unionistas",
+      "away": "Pontevedra CF",
+      "date": "2027-05-09"
+    },
+    {
+      "jornada": 36,
+      "home": "Zamora CF",
+      "away": "UD Ourense",
+      "date": "2027-05-09"
+    },
+    {
+      "jornada": 37,
+      "home": "Bilbao Athletic",
+      "away": "Zamora CF",
+      "date": "2027-05-16"
+    },
+    {
+      "jornada": 37,
+      "home": "CP Cacereño",
+      "away": "RC Deportivo Fabril",
+      "date": "2027-05-16"
+    },
+    {
+      "jornada": 37,
+      "home": "Racing Ferrol",
+      "away": "CyD Leonesa",
+      "date": "2027-05-16"
+    },
+    {
+      "jornada": 37,
+      "home": "CD Lugo",
+      "away": "Arenas Club",
+      "date": "2027-05-16"
+    },
+    {
+      "jornada": 37,
+      "home": "AD Mérida",
+      "away": "Barakaldo CF",
+      "date": "2027-05-16"
+    },
+    {
+      "jornada": 37,
+      "home": "CD Mirandés",
+      "away": "Real Avilés",
+      "date": "2027-05-16"
+    },
+    {
+      "jornada": 37,
+      "home": "UD Ourense",
+      "away": "CD Extremadura",
+      "date": "2027-05-16"
+    },
+    {
+      "jornada": 37,
+      "home": "Pontevedra CF",
+      "away": "Real Unión",
+      "date": "2027-05-16"
+    },
+    {
+      "jornada": 37,
+      "home": "SD Ponferradina",
+      "away": "CD Coria",
+      "date": "2027-05-16"
+    },
+    {
+      "jornada": 37,
+      "home": "UD Logroñés",
+      "away": "Unionistas",
+      "date": "2027-05-16"
+    },
+    {
+      "jornada": 38,
+      "home": "Arenas Club",
+      "away": "Pontevedra CF",
+      "date": "2027-05-23"
+    },
+    {
+      "jornada": 38,
+      "home": "Barakaldo CF",
+      "away": "CP Cacereño",
+      "date": "2027-05-23"
+    },
+    {
+      "jornada": 38,
+      "home": "CD Coria",
+      "away": "UD Ourense",
+      "date": "2027-05-23"
+    },
+    {
+      "jornada": 38,
+      "home": "CyD Leonesa",
+      "away": "Bilbao Athletic",
+      "date": "2027-05-23"
+    },
+    {
+      "jornada": 38,
+      "home": "RC Deportivo Fabril",
+      "away": "CD Mirandés",
+      "date": "2027-05-23"
+    },
+    {
+      "jornada": 38,
+      "home": "CD Extremadura",
+      "away": "CD Lugo",
+      "date": "2027-05-23"
+    },
+    {
+      "jornada": 38,
+      "home": "Real Avilés",
+      "away": "SD Ponferradina",
+      "date": "2027-05-23"
+    },
+    {
+      "jornada": 38,
+      "home": "Real Unión",
+      "away": "UD Logroñés",
+      "date": "2027-05-23"
+    },
+    {
+      "jornada": 38,
+      "home": "Unionistas",
+      "away": "AD Mérida",
+      "date": "2027-05-23"
+    },
+    {
+      "jornada": 38,
+      "home": "Zamora CF",
+      "away": "Racing Ferrol",
+      "date": "2027-05-23"
+    }
+  ],
+  "odds": {}
+}

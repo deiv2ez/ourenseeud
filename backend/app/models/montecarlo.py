@@ -1,0 +1,256 @@
+"""
+montecarlo.py — Simulación de temporada por Monte Carlo.
+
+IDEA GENERAL
+------------
+1. Cada equipo tiene una FUERZA DE ATAQUE y una FUERZA DE DEFENSA, estimadas a
+   partir de los goles marcados/encajados respecto a la media de la liga.
+2. Para un partido, esas fuerzas producen un número esperado de goles (lambda)
+   para local y visitante. Los goles se modelan con distribución de POISSON, que
+   es la que mejor describe el conteo de goles en fútbol.
+3. El Elo (elo.py) modula esas lambdas: un equipo fuerte marca un poco más y
+   encaja un poco menos de lo que dirían sus goles brutos.
+4. OPCIONAL: si hay CUOTAS de casas (Bet365, etc.) para ese partido, se convierten
+   a probabilidad implícita (quitando el margen de la casa) y se hace un BLEND
+   con la probabilidad del modelo. Así el "expected result" une estadística propia
+   y sabiduría del mercado.
+5. Se simulan los partidos que faltan miles de veces; en cada simulación se
+   completa la clasificación y se anota dónde acaba cada equipo. Promediando todas
+   las simulaciones salen las probabilidades de campeón / playoff / descenso.
+
+Las métricas que este motor expone al frontend son las de marca del proyecto:
+   oGoals  = goles esperados del modelo (a favor y en contra)
+   oPts    = puntos esperados del modelo sobre los partidos ya jugados
+
+Depende solo de numpy.
+"""
+
+from __future__ import annotations
+from dataclasses import dataclass
+import numpy as np
+
+from .elo import EloModel
+
+
+# --- Estructura de la competición (1ª RFEF, Grupo 1, 20 equipos) --------------
+PROMO_DIRECT = 1     # 1º: ascenso directo a Segunda División
+PLAYOFF_TO = 5       # 2º-5º: playoff de ascenso
+RELEGATION_FROM = 16 # 16º-20º: descenso a Segunda Federación (5 plazas)
+
+
+@dataclass
+class TeamStrength:
+    attack: float   # goles marcados relativos a la media (1.0 = media liga)
+    defense: float  # goles encajados relativos a la media (1.0 = media; <1 mejor)
+    elo: float
+
+
+class SeasonModel:
+    def __init__(self, teams: list[str], home_adv_goals: float = 0.25):
+        self.teams = list(teams)
+        self.home_adv_goals = home_adv_goals   # ventaja de campo, en goles
+        self.league_avg_goals = 1.35           # media de goles por equipo y partido
+        self.strength: dict[str, TeamStrength] = {}
+        self.elo = EloModel()
+
+    # ---------------------------------------------------------------- ajuste --
+    def fit(self, played: list[dict]) -> "SeasonModel":
+        """
+        Estima fuerzas de ataque/defensa a partir de partidos jugados y corre el
+        Elo sobre ellos. `played`: [{"home","away","hg","ag"}, ...] cronológico.
+        """
+        self.elo.run(played)
+
+        # AWAY_WEIGHT: os goles marcados/encaixados FÓRA contan un pouco máis ao
+        # estimar a forza, porque puntuar fóra é máis difícil. Moderado (1.15),
+        # non esaxerado: un gol fóra vale como ~1.15 na casa para o modelo.
+        AWAY_WEIGHT = 1.15
+
+        gf, ga, games = {}, {}, {}      # acumuladores PONDERADOS
+        raw_games = {}                  # conta real de partidos (sen ponderar)
+        for t in self.teams:
+            gf[t] = ga[t] = games[t] = raw_games[t] = 0.0
+        total_goals = 0
+        for m in played:
+            h, a, hg, ag = m["home"], m["away"], int(m["hg"]), int(m["ag"])
+            # local: goles a peso normal. visitante: goles a peso AWAY_WEIGHT.
+            gf[h] += hg;             ga[h] += ag;             games[h] += 1
+            gf[a] += ag * AWAY_WEIGHT; ga[a] += hg * AWAY_WEIGHT; games[a] += AWAY_WEIGHT
+            raw_games[h] += 1; raw_games[a] += 1
+            total_goals += hg + ag
+
+        if sum(raw_games.values()):
+            self.league_avg_goals = total_goals / sum(raw_games.values())
+
+        avg = self.league_avg_goals or 1.35
+        elo_mean = np.mean(list(self.elo.ratings.values())) if self.elo.ratings else 1500.0
+
+        for t in self.teams:
+            g = games[t] or 1              # peso total (para promediar goles)
+            rg = raw_games[t] or 1         # partidos reais (para o shrinkage)
+            # fuerza base por goles, suavizada hacia 1.0 con pocos partidos (shrinkage)
+            raw_att = (gf[t] / g) / avg
+            raw_def = (ga[t] / g) / avg
+            w = min(1.0, rg / 10.0)  # confianza: con <10 partidos, tira hacia la media
+            att = w * raw_att + (1 - w) * 1.0
+            dff = w * raw_def + (1 - w) * 1.0
+            # modulación Elo: ±0.15 según distancia a la media de la liga
+            elo_mod = (self.elo.rating(t) - elo_mean) / 400.0
+            self.strength[t] = TeamStrength(
+                attack=att * (1 + 0.15 * elo_mod),
+                defense=dff * (1 - 0.15 * elo_mod),
+                elo=self.elo.rating(t),
+            )
+        return self
+
+    # -------------------------------------------------- lambdas de un partido --
+    def _lambdas(self, home: str, away: str) -> tuple[float, float]:
+        h, a = self.strength[home], self.strength[away]
+        avg = self.league_avg_goals
+        lam_home = avg * h.attack * a.defense + self.home_adv_goals
+        lam_away = avg * a.attack * h.defense
+        return max(0.15, lam_home), max(0.15, lam_away)
+
+    def match_probs(self, home: str, away: str, max_goals: int = 10) -> dict:
+        """
+        Probabilidades 1-X-2 y oGoals de un partido según el modelo (sin cuotas).
+        Convoluciona dos Poisson independientes sobre una rejilla de resultados.
+        """
+        lam_h, lam_a = self._lambdas(home, away)
+        gh = _poisson_pmf(lam_h, max_goals)
+        ga = _poisson_pmf(lam_a, max_goals)
+        grid = np.outer(gh, ga)
+        p_home = np.tril(grid, -1).sum()
+        p_draw = np.trace(grid)
+        p_away = np.triu(grid, 1).sum()
+        # marcador más probable de la rejilla
+        i, j = np.unravel_index(np.argmax(grid), grid.shape)
+        return {
+            "home_win": round(float(p_home), 4),
+            "draw": round(float(p_draw), 4),
+            "away_win": round(float(p_away), 4),
+            "oGoals_home": round(float(lam_h), 2),
+            "oGoals_away": round(float(lam_a), 2),
+            "likely_score": [int(i), int(j)],
+        }
+
+    # ---------------------------------------------------- blend con cuotas ----
+    @staticmethod
+    def odds_to_prob(odd_home: float, odd_draw: float, odd_away: float) -> dict:
+        """
+        Convierte cuotas decimales (Bet365 u otras) en probabilidades implícitas,
+        eliminando el margen de la casa (overround) por normalización simple.
+        """
+        inv = np.array([1 / odd_home, 1 / odd_draw, 1 / odd_away])
+        p = inv / inv.sum()
+        return {"home_win": float(p[0]), "draw": float(p[1]), "away_win": float(p[2])}
+
+    def expected_result(self, home: str, away: str, odds: dict | None = None,
+                        blend: float = 0.5) -> dict:
+        """
+        "Expected result" del partido: modelo propio, y si hay cuotas, mezcla.
+        blend = peso del mercado (0 = solo modelo, 1 = solo cuotas).
+        """
+        model = self.match_probs(home, away)
+        out = dict(model)
+        out["source"] = "model"
+        if odds:
+            mkt = self.odds_to_prob(odds["home"], odds["draw"], odds["away"])
+            for k in ("home_win", "draw", "away_win"):
+                out[k] = round((1 - blend) * model[k] + blend * mkt[k], 4)
+            out["source"] = f"blend({int(blend*100)}% mercado)"
+        return out
+
+    # ----------------------------------------------------- simulación temporada
+    def simulate(self, played: list[dict], remaining: list[dict],
+                n_sims: int = 10000, seed: int | None = 42) -> dict:
+        """
+        Simula `n_sims` veces los partidos `remaining` partiendo de los puntos ya
+        logrados en `played`. Devuelve, por equipo, probabilidades de acabar
+        campeón / en playoff / descendido, además de posición media y oPts.
+        """
+        rng = np.random.default_rng(seed)
+        idx = {t: i for i, t in enumerate(self.teams)}
+        n = len(self.teams)
+
+        base_pts = np.zeros(n)
+        base_gd = np.zeros(n)
+        base_gf = np.zeros(n)
+        for m in played:
+            hg, ag = int(m["hg"]), int(m["ag"])
+            ih, ia = idx[m["home"]], idx[m["away"]]
+            base_gf[ih] += hg; base_gf[ia] += ag
+            base_gd[ih] += hg - ag; base_gd[ia] += ag - hg
+            if hg > ag: base_pts[ih] += 3
+            elif hg < ag: base_pts[ia] += 3
+            else: base_pts[ih] += 1; base_pts[ia] += 1
+
+        # Pre-cálculo de lambdas de cada partido restante (más rápido en el bucle)
+        rem = []
+        for m in remaining:
+            lam_h, lam_a = self._lambdas(m["home"], m["away"])
+            rem.append((idx[m["home"]], idx[m["away"]], lam_h, lam_a))
+
+        counts_champ = np.zeros(n)
+        counts_po = np.zeros(n)
+        counts_rel = np.zeros(n)
+        pos_sum = np.zeros(n)
+
+        for _ in range(n_sims):
+            pts = base_pts.copy()
+            gd = base_gd.copy()
+            gf = base_gf.copy()
+            for ih, ia, lam_h, lam_a in rem:
+                hg = rng.poisson(lam_h)
+                ag = rng.poisson(lam_a)
+                gf[ih] += hg; gf[ia] += ag
+                gd[ih] += hg - ag; gd[ia] += ag - hg
+                if hg > ag: pts[ih] += 3
+                elif hg < ag: pts[ia] += 3
+                else: pts[ih] += 1; pts[ia] += 1
+
+            # ordenar por puntos, luego diferencia de goles, luego goles a favor
+            order = np.lexsort((-gf, -gd, -pts))  # último criterio = primero
+            ranks = np.empty(n, dtype=int)
+            ranks[order] = np.arange(1, n + 1)
+
+            counts_champ += (ranks <= PROMO_DIRECT)
+            counts_po += (ranks <= PLAYOFF_TO)
+            counts_rel += (ranks >= RELEGATION_FROM)
+            pos_sum += ranks
+
+        # oPts: puntos esperados del modelo sobre los partidos YA jugados
+        opts = self._expected_points_played(played, idx, n)
+
+        result = {}
+        for t, i in idx.items():
+            result[t] = {
+                "pChamp": round(100 * counts_champ[i] / n_sims, 1),
+                "pPO": round(100 * counts_po[i] / n_sims, 1),
+                "pRel": round(100 * counts_rel[i] / n_sims, 1),
+                "avgPos": round(pos_sum[i] / n_sims, 1),
+                "oPts": round(opts[i], 1),
+                "elo": round(self.strength[t].elo),
+            }
+        return result
+
+    def _expected_points_played(self, played, idx, n) -> np.ndarray:
+        """oPts: suma de puntos esperados (según probabilidades del modelo) en los
+        partidos jugados. Compararlos con los reales dice si un equipo rinde por
+        encima o por debajo de lo que 'merecía'."""
+        opts = np.zeros(n)
+        for m in played:
+            p = self.match_probs(m["home"], m["away"])
+            ih, ia = idx[m["home"]], idx[m["away"]]
+            opts[ih] += 3 * p["home_win"] + 1 * p["draw"]
+            opts[ia] += 3 * p["away_win"] + 1 * p["draw"]
+        return opts
+
+
+# --------------------------------------------------------------- utilidades ---
+def _poisson_pmf(lam: float, max_k: int) -> np.ndarray:
+    """Vector de probabilidades Poisson P(X=k) para k=0..max_k."""
+    from math import lgamma, log
+    k = np.arange(max_k + 1)
+    logp = k * log(lam) - lam - np.array([lgamma(int(v) + 1) for v in k])
+    return np.exp(logp)
