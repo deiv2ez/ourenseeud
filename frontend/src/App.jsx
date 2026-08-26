@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { api } from "./lib/api";
 
 /* ============================================================================
    OURENSE É UD — App unificada (preview navegable, sen login aínda)
@@ -246,10 +247,58 @@ export default function App() {
   );
 }
 
+/* --- mapa nome do backend → slug/cor do noso catálogo T --------------------
+   O backend devolve nomes canónicos; buscamos o slug para pintar escudos/cor. */
+const NAME_TO_KEY = Object.fromEntries(Object.entries(T).map(([k, v]) => [v.n, k]));
+
+function adaptStandings(apiRows) {
+  // Converte a resposta de /api/standings ao formato que usa a táboa.
+  return apiRows.map((r) => {
+    const k = NAME_TO_KEY[r.team] || r.slug;
+    const meta = T[k] || { n: r.team, c: "#888", s: (r.team || "?").slice(0, 3).toUpperCase() };
+    return {
+      k, ...meta,
+      pld: r.pld, w: r.w, d: r.d, l: r.l, gf: r.gf, ga: r.ga, gd: r.gd, pts: r.pts,
+      opts: r.oPts ?? 0, xg: r.oPts ?? 0,
+      F: (r.form || []).slice(-5),
+      udo: r.team === "UD Ourense",
+      // probabilidades énchense despois desde /api/probs
+      pC: 0, pP: 0, pR: 0,
+    };
+  });
+}
+
 /* =========================================================== DASHBOARD ==== */
 function Dashboard({ t }) {
   const [view, setView] = useState("table");
-  const rows = useMemo(() => [...MOCK].sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf), []);
+  const [rows, setRows] = useState(() => [...MOCK].sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf));
+  const [live, setLive] = useState(false); // true se cargaron datos reais
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        // clasificación real; as probabilidades veñen aparte e fusiónanse
+        const [st, pr] = await Promise.all([
+          api.standings(),
+          api.probs().catch(() => []),
+        ]);
+        if (!alive) return;
+        const probByTeam = Object.fromEntries((pr || []).map((p) => [p.team, p]));
+        const adapted = adaptStandings(st).map((r) => {
+          const p = probByTeam[r.n] || {};
+          return { ...r, pC: p.pChamp ?? 0, pP: p.pPO ?? 0, pR: p.pRel ?? 0 };
+        });
+        adapted.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
+        setRows(adapted);
+        setLive(true);
+      } catch {
+        // se o backend está durmido ou falla, quedamos co mock (xa cargado)
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
   const zoneOf = (i) => (i === 0 ? "promo" : i <= 4 ? "po" : i >= 15 ? "rel" : null);
 
   return (
@@ -504,11 +553,30 @@ function EvoChart({ evo }) {
 /* ============================================================== PLANTILLA == */
 function Squad({ t }) {
   const [filter, setFilter] = useState("all");
+  const [players, setPlayers] = useState(SQUAD);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const sq = await api.squad();
+        if (!alive || !Array.isArray(sq) || !sq.length) return;
+        // o backend dá born como data "YYYY-MM-DD"; a tarxeta usa o ano
+        setPlayers(sq.map((p) => ({
+          ...p,
+          born: typeof p.born === "string" ? parseInt(p.born.slice(0, 4)) : p.born,
+          oR: p.oRating ?? null,
+        })));
+      } catch { /* fallback ao SQUAD mock xa cargado */ }
+    })();
+    return () => { alive = false; };
+  }, []);
+
   const GROUP = { GK: "gk", DF: "df", LI: "df", LD: "df", MC: "mf", MCO: "mf", EI: "fw", ED: "fw", DC: "fw" };
   const POS = { GK: "POR", DF: "DFC", LI: "LI", LD: "LD", MC: "MC", MCO: "MCO", EI: "EI", ED: "ED", DC: "DC" };
   const rc = (r) => (r == null ? "#c4c4c4" : r >= 7.0 ? "#1a8a4a" : r >= 6.3 ? "#c99700" : "#b06a3b");
   const fmtMV = (v) => (v == null ? "—" : `${Math.round(v / 1000)} mil €`);
-  const list = filter === "all" ? SQUAD : SQUAD.filter((p) => GROUP[p.pos] === filter);
+  const list = filter === "all" ? players : players.filter((p) => GROUP[p.pos] === filter);
   const tabs = [["all", t.all], ["gk", t.gk], ["df", t.df], ["mf", t.mf], ["fw", t.fw]];
 
   return (
