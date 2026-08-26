@@ -88,7 +88,73 @@ def _standings(data: dict) -> list[dict]:
     for r in rows.values():
         r["gd"] = r["gf"] - r["ga"]
         r["form"] = r["form"][-5:]
-    return sorted(rows.values(), key=lambda r: (-r["pts"], -r["gd"], -r["gf"]))
+    return _rank_with_tiebreakers(list(rows.values()), data["played"])
+
+
+def _rank_with_tiebreakers(rows: list[dict], played: list[dict]) -> list[dict]:
+    """
+    Ordena a clasificación cos criterios OFICIAIS da RFEF.
+
+    Primeiro por puntos. Dentro de cada grupo empatado a puntos, aplícase o
+    desempate oficial:
+      · Entre 2+ equipos: mini-liga só cos partidos ENTRE eles →
+        1) puntos nesa mini-liga, 2) dif. goles entre eles,
+        3) dif. goles xeral, 4) goles a favor xeral.
+      · O enfrontamento directo SÓ conta se xa se xogaron TODOS os partidos
+        entre os implicados; se non, vaise directo á dif. de goles xeral.
+    """
+    # índice de partidos xogados entre cada par de equipos
+    def matches_between(teams: set[str]) -> list[dict]:
+        return [m for m in played if m["home"] in teams and m["away"] in teams]
+
+    # cantos cruces DEBERÍAN existir entre N equipos nunha liga a dobre volta:
+    # cada par xoga 2 veces → N*(N-1) partidos en total.
+    def all_h2h_played(teams: set[str]) -> bool:
+        n = len(teams)
+        return len(matches_between(teams)) >= n * (n - 1)
+
+    def mini_league(teams: set[str]) -> dict:
+        """Táboa (pts, dif. goles) só cos partidos entre os equipos do grupo."""
+        sub = {t: {"pts": 0, "gf": 0, "ga": 0} for t in teams}
+        for m in matches_between(teams):
+            h, a, hg, ag = m["home"], m["away"], m["hg"], m["ag"]
+            sub[h]["gf"] += hg; sub[h]["ga"] += ag
+            sub[a]["gf"] += ag; sub[a]["ga"] += hg
+            if hg > ag: sub[h]["pts"] += 3
+            elif hg < ag: sub[a]["pts"] += 3
+            else: sub[h]["pts"] += 1; sub[a]["pts"] += 1
+        return sub
+
+    # 1) orde base por puntos (descendente)
+    rows_sorted = sorted(rows, key=lambda r: -r["pts"])
+
+    # 2) agrupar por puntos e desempatar dentro de cada grupo
+    result = []
+    i = 0
+    while i < len(rows_sorted):
+        j = i
+        while j < len(rows_sorted) and rows_sorted[j]["pts"] == rows_sorted[i]["pts"]:
+            j += 1
+        group = rows_sorted[i:j]
+        if len(group) == 1:
+            result.append(group[0])
+        else:
+            teams = {r["team"] for r in group}
+            if all_h2h_played(teams):
+                sub = mini_league(teams)
+                # 1) pts mini-liga, 2) dif goles mini-liga, 3) dif goles xeral, 4) GF xeral
+                group.sort(key=lambda r: (
+                    -sub[r["team"]]["pts"],
+                    -(sub[r["team"]]["gf"] - sub[r["team"]]["ga"]),
+                    -r["gd"],
+                    -r["gf"],
+                ))
+            else:
+                # aínda non se xogaron todos os cruces → dif goles xeral, logo GF
+                group.sort(key=lambda r: (-r["gd"], -r["gf"]))
+            result.extend(group)
+        i = j
+    return result
 
 
 # ---------------------------------------------------------------- endpoints --
@@ -188,23 +254,56 @@ def simulate_whatif(req: SimRequest):
     return {"table": table, "probs": probs}
 
 
+@app.get("/api/resume")
+def resume_board():
+    """
+    Currículum (Resume Board): ranking polo 'valor real' dos puntos, ponderando
+    dificultade do rival e onde se xogou. Devuelve filas ordenadas por currículum,
+    coa diferenza fronte aos puntos reais (quen mereceu camiño máis duro/doado).
+    """
+    data = load()
+    model = _fit_model(data)
+    board = model.resume_board(data["played"])
+    rows = []
+    for name, v in board.items():
+        rows.append({
+            "team": name, "slug": SLUG_BY_NAME[name],
+            "pts": v["pts"], "resume": v["resume"], "played": v["played"],
+            "diff": round(v["resume"] - v["pts"], 1),
+        })
+    rows.sort(key=lambda r: -r["resume"])
+    return rows
+
+
 @app.get("/api/matchday")
 def current_matchday():
     """
-    Devuelve la próxima jornada pendiente completa (todos sus partidos), para que
-    el simulador la muestre y el usuario fije resultados hipotéticos.
+    Devuelve la próxima jornada pendiente completa (todos sus partidos), cada uno
+    con a súa PREDICIÓN: marcador esperado, oGoals e probabilidades 1-X-2.
+    Serve tanto para o simulador como para a sección 'Xornada' de previas.
     """
     data = load()
     if not data["remaining"]:
         return {"jornada": None, "matches": []}
     j = min(m["jornada"] for m in data["remaining"])
-    matches = [
-        {
+    model = _fit_model(data)
+    matches = []
+    for m in data["remaining"]:
+        if m["jornada"] != j:
+            continue
+        p = model.match_probs(m["home"], m["away"])
+        matches.append({
             "home": m["home"], "home_slug": SLUG_BY_NAME[m["home"]],
             "away": m["away"], "away_slug": SLUG_BY_NAME[m["away"]],
-        }
-        for m in data["remaining"] if m["jornada"] == j
-    ]
+            "date": m.get("date"),
+            # predición do modelo
+            "likely_score": p["likely_score"],           # marcador máis probable [h, a]
+            "oGoals_home": p["oGoals_home"],
+            "oGoals_away": p["oGoals_away"],
+            "p_home": round(p["home_win"] * 100),         # 1
+            "p_draw": round(p["draw"] * 100),             # X
+            "p_away": round(p["away_win"] * 100),         # 2
+        })
     return {"jornada": j, "matches": matches}
 
 
@@ -240,6 +339,82 @@ def team_evolution(slug: str):
             "gf": gf, "ga": ga,
         })
     return {"team": name, "slug": slug, "evolution": points}
+
+
+@app.get("/api/team/{slug}")
+def team_profile(slug: str):
+    """
+    Ficha completa dun equipo: resumo (posición, PX, V-E-D, goles, forma, oPts),
+    próximo partido con predición, e calendario (xogados con resultado + pendentes).
+    """
+    name = next((n for n, s in SLUG_BY_NAME.items() if s == slug), None)
+    if not name:
+        raise HTTPException(404, f"Slug desconocido: {slug}")
+    data = load()
+    table = _standings(data)
+    pos = {r["team"]: i + 1 for i, r in enumerate(table)}
+    row = next(r for r in table if r["team"] == name)
+    model = _fit_model(data)
+
+    # oPts (puntos merecidos) acumulados na tempada
+    opts = 0.0
+    for m in sorted(data["played"], key=lambda x: x["jornada"]):
+        if name not in (m["home"], m["away"]):
+            continue
+        p = model.match_probs(m["home"], m["away"])
+        is_home = m["home"] == name
+        opts += (3 * p["home_win"] + p["draw"]) if is_home else (3 * p["away_win"] + p["draw"])
+
+    # próximo partido con predición
+    upcoming = [m for m in sorted(data["remaining"], key=lambda x: x["jornada"])
+                if name in (m["home"], m["away"])]
+    next_match = None
+    if upcoming:
+        nm = upcoming[0]
+        p = model.match_probs(nm["home"], nm["away"])
+        is_home = nm["home"] == name
+        next_match = {
+            "jornada": nm["jornada"], "home": nm["home"], "away": nm["away"],
+            "home_slug": SLUG_BY_NAME[nm["home"]], "away_slug": SLUG_BY_NAME[nm["away"]],
+            "date": nm.get("date"), "is_home": is_home,
+            "likely_score": p["likely_score"],
+            "oGoals_home": p["oGoals_home"], "oGoals_away": p["oGoals_away"],
+            "p_win": round((p["home_win"] if is_home else p["away_win"]) * 100),
+            "p_draw": round(p["draw"] * 100),
+            "p_loss": round((p["away_win"] if is_home else p["home_win"]) * 100),
+        }
+
+    # calendario: xogados (con resultado) + pendentes
+    fixtures = []
+    for m in sorted(data["played"], key=lambda x: x["jornada"]):
+        if name not in (m["home"], m["away"]):
+            continue
+        is_home = m["home"] == name
+        gf, ga = (m["hg"], m["ag"]) if is_home else (m["ag"], m["hg"])
+        rival = m["away"] if is_home else m["home"]
+        fixtures.append({
+            "jornada": m["jornada"], "rival": rival, "rival_slug": SLUG_BY_NAME[rival],
+            "is_home": is_home, "gf": gf, "ga": ga, "played": True,
+            "result": "W" if gf > ga else "L" if gf < ga else "D",
+        })
+    for m in sorted(data["remaining"], key=lambda x: x["jornada"]):
+        if name not in (m["home"], m["away"]):
+            continue
+        is_home = m["home"] == name
+        rival = m["away"] if is_home else m["home"]
+        fixtures.append({
+            "jornada": m["jornada"], "rival": rival, "rival_slug": SLUG_BY_NAME[rival],
+            "is_home": is_home, "played": False, "date": m.get("date"),
+        })
+
+    return {
+        "team": name, "slug": slug, "pos": pos[name],
+        "pld": row["pld"], "w": row["w"], "d": row["d"], "l": row["l"],
+        "gf": row["gf"], "ga": row["ga"], "gd": row["gd"], "pts": row["pts"],
+        "oPts": round(opts, 1), "form": row["form"],
+        "elo": round(model.strength[name].elo),
+        "next": next_match, "fixtures": fixtures,
+    }
 
 
 @app.get("/api/team/{slug}/vs")
