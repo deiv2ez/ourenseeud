@@ -46,10 +46,20 @@ class TeamStrength:
 
 
 class SeasonModel:
-    def __init__(self, teams: list[str], home_adv_goals: float = 0.25):
+    # Parámetros CALIBRADOS coa 1ª RFEF (medias reais 24/25 e 25/26, fonte BeSoccer):
+    #   · 2.43 goles/partido de media na categoría → 1.215 por equipo e partido.
+    #   · Ventaxa de campo: locais marcan 1.43/90 e visitantes 1.02/90 → diferenza
+    #     de ~0.41 goles. Repártese como vantaxe local (+0.20) e desvantaxe
+    #     visitante implícita, dando o gap real observado (45% vitorias locais).
+    # NON son forzas de equipos concretos (iso apréndese cos partidos): son
+    # parámetros ESTRUTURAIS da categoría, estables entre tempadas.
+    LEAGUE_AVG_GOALS_1RFEF = 1.215   # goles por equipo e partido (2.43 / 2)
+    HOME_ADV_1RFEF = 0.41            # diferenza local-visitante en goles/partido
+
+    def __init__(self, teams: list[str], home_adv_goals: float = HOME_ADV_1RFEF):
         self.teams = list(teams)
-        self.home_adv_goals = home_adv_goals   # ventaja de campo, en goles
-        self.league_avg_goals = 1.35           # media de goles por equipo y partido
+        self.home_adv_goals = home_adv_goals   # ventaja de campo, en goles (1ª RFEF)
+        self.league_avg_goals = self.LEAGUE_AVG_GOALS_1RFEF  # media da categoría
         self.strength: dict[str, TeamStrength] = {}
         self.elo = EloModel()
 
@@ -103,12 +113,53 @@ class SeasonModel:
             )
         return self
 
+    # ------------------------------------------------ currículum / resume ----
+    def resume_board(self, played: list[dict]) -> dict[str, dict]:
+        """
+        Currículum (Resume Board): valora CANTO MERECE cada punto segundo a
+        dificultade real do contexto. Cada resultado pondérase por:
+          · forza do rival (Elo relativo á media): gañar a un forte vale máis.
+          · onde se xogou: gañar/puntuar FÓRA vale máis que na casa.
+        Devolve por equipo: puntos reais e 'valor currículum' (puntos ponderados).
+        A diferenza entre ambos revela quen tivo un camiño máis duro ou máis doado.
+        """
+        elo_mean = np.mean(list(self.elo.ratings.values())) if self.elo.ratings else 1500.0
+        out = {t: {"pts": 0, "resume": 0.0, "played": 0} for t in self.teams}
+
+        for m in played:
+            h, a, hg, ag = m["home"], m["away"], int(m["hg"]), int(m["ag"])
+            # puntos deste partido para cada equipo
+            if hg > ag: ph, pa = 3, 0
+            elif hg < ag: ph, pa = 0, 3
+            else: ph, pa = 1, 1
+
+            for team, opp, pts, is_home in ((h, a, ph, True), (a, h, pa, False)):
+                if team not in out:
+                    continue
+                # factor rival: >1 se o rival é forte, <1 se é débil (±~0.5 nos extremos)
+                opp_factor = 1.0 + (self.elo.rating(opp) - elo_mean) / 400.0
+                opp_factor = max(0.5, min(1.5, opp_factor))
+                # factor campo: puntuar fóra vale máis (usa o AWAY_WEIGHT filosófico)
+                venue_factor = 1.15 if not is_home else 1.0
+                out[team]["pts"] += pts
+                out[team]["resume"] += pts * opp_factor * venue_factor
+                out[team]["played"] += 1
+
+        for t in out:
+            out[t]["resume"] = round(out[t]["resume"], 1)
+        return out
+
     # -------------------------------------------------- lambdas de un partido --
     def _lambdas(self, home: str, away: str) -> tuple[float, float]:
         h, a = self.strength[home], self.strength[away]
         avg = self.league_avg_goals
-        lam_home = avg * h.attack * a.defense + self.home_adv_goals
-        lam_away = avg * a.attack * h.defense
+        # A ventaxa de campo (0.41 goles en 1ª RFEF) repártese: metade favorece ao
+        # local e metade prexudica ao visitante. Así o TOTAL de goles mantense na
+        # media real da categoría e o reparto local/visitante achégase ao 45%/25%
+        # observado, en vez de inflar o total sumando todo ao local.
+        half = self.home_adv_goals / 2.0
+        lam_home = avg * h.attack * a.defense + half
+        lam_away = avg * a.attack * h.defense - half
         return max(0.15, lam_home), max(0.15, lam_away)
 
     def match_probs(self, home: str, away: str, max_goals: int = 10) -> dict:
