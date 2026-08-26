@@ -31,7 +31,7 @@ const I18N = {
     tagline: "a nosa vida",
     nav: { dashboard: "Clasificación", sim: "Simulador", hub: "UD Ourense", squad: "Plantilla" },
     season: "Tempada 2026-27 · 1ª RFEF · Grupo 1",
-    team: "Equipo", pld: "PX", gd: "DG", pts: "Ptos", form: "Forma",
+    team: "Equipo", pld: "PX", gf: "GF", ga: "GC", gd: "DG", pts: "Ptos", form: "Forma",
     oPts: "oPts", diff: "Δ", xg: "xG",
     champ: "Campión", playoff: "Playoff", releg: "Descenso",
     vTable: "Táboa", vProbs: "Probabilidades",
@@ -52,7 +52,7 @@ const I18N = {
     tagline: "a nosa vida",
     nav: { dashboard: "Clasificación", sim: "Simulador", hub: "UD Ourense", squad: "Plantilla" },
     season: "Temporada 2026-27 · 1ª RFEF · Grupo 1",
-    team: "Equipo", pld: "PJ", gd: "DG", pts: "Pts", form: "Forma",
+    team: "Equipo", pld: "PJ", gf: "GF", ga: "GC", gd: "DG", pts: "Pts", form: "Forma",
     oPts: "oPts", diff: "Δ", xg: "xG",
     champ: "Campeón", playoff: "Playoff", releg: "Descenso",
     vTable: "Tabla", vProbs: "Probabilidades",
@@ -180,6 +180,21 @@ function Bar({ value, color }) {
   return <div className="h-2.5 w-full overflow-hidden rounded bg-neutral-200"><div className="h-full rounded transition-all" style={{ width: `${Math.min(100, value)}%`, backgroundColor: color }} /></div>;
 }
 
+/* Cabeceira de táboa clicable para ordenar. Amosa ▲/▼ na columna activa. */
+function SortTh({ col, label, sort, onClick, bold, title }) {
+  const active = sort.col === col;
+  const arrow = active ? (sort.dir === "desc" ? " ▾" : " ▴") : "";
+  return (
+    <th
+      onClick={() => onClick(col)}
+      title={title}
+      className={`cursor-pointer select-none px-2 py-2.5 text-center font-semibold transition hover:text-neutral-900 ${bold ? "text-neutral-700" : ""} ${active ? "text-neutral-900" : ""}`}
+    >
+      {label}<span className="text-[10px]">{arrow}</span>
+    </th>
+  );
+}
+
 /* ================================================================ APP ===== */
 export default function App() {
   const [lang, setLang] = useState("gl");
@@ -199,11 +214,11 @@ export default function App() {
       <aside className="sticky top-0 flex h-screen w-16 flex-col justify-between border-r border-neutral-200 bg-white sm:w-56">
         <div>
           {/* marca */}
-          <div className="flex items-center gap-2.5 border-b border-neutral-100 px-3 py-4 sm:px-4">
-            <BrandCrest size={36} />
+          <div className="flex flex-col items-center gap-2 border-b border-neutral-100 px-3 py-5 sm:flex-row sm:items-center sm:gap-3 sm:px-4">
+            <BrandCrest size={52} />
             <div className="hidden leading-tight sm:block">
-              <div className="text-sm font-black tracking-tight">Ourense é <span style={{ color: RED }}>UD</span></div>
-              <div className="text-[11px] italic text-neutral-400">{t.tagline}</div>
+              <div className="text-lg font-black tracking-tight">Ourense é <span style={{ color: RED }}>UD</span></div>
+              <div className="text-xs italic text-neutral-400">{t.tagline}</div>
             </div>
           </div>
           {/* navegación */}
@@ -299,7 +314,31 @@ function Dashboard({ t }) {
     return () => { alive = false; };
   }, []);
 
+  // Ordenación por columna. Por defecto: clasificación real (pts, gd, gf).
+  // NOTA: o desempate oficial (enfrontamento directo, etc.) implementarase no
+  // backend máis adiante; aquí ordénase polos campos dispoñibles.
+  const [sort, setSort] = useState({ col: "default", dir: "desc" });
+
+  const sorted = useMemo(() => {
+    const arr = [...rows];
+    if (sort.col === "default") {
+      return arr.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
+    }
+    const val = (r) => ({
+      pld: r.pld, gf: r.gf, ga: r.ga, gd: r.gd, pts: r.pts,
+      opts: r.opts, diff: r.opts - r.pts,
+    }[sort.col]);
+    const s = sort.dir === "desc" ? -1 : 1;
+    return arr.sort((a, b) => (val(a) - val(b)) * s || b.pts - a.pts);
+  }, [rows, sort]);
+
+  const toggleSort = (col) =>
+    setSort((p) => p.col === col
+      ? (p.dir === "desc" ? { col, dir: "asc" } : { col: "default", dir: "desc" })
+      : { col, dir: "desc" });
+
   const zoneOf = (i) => (i === 0 ? "promo" : i <= 4 ? "po" : i >= 15 ? "rel" : null);
+  const showZones = sort.col === "default";
 
   return (
     <div>
@@ -315,22 +354,25 @@ function Dashboard({ t }) {
 
       {view === "table" ? (
         <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
-          <table className="w-full min-w-[640px] border-collapse text-sm">
+          <table className="w-full min-w-[720px] border-collapse text-sm">
             <thead className="bg-neutral-100 text-xs uppercase tracking-wide text-neutral-500">
               <tr>
                 <th className="px-2 py-2.5 text-center font-semibold">#</th>
                 <th className="px-3 py-2.5 text-left font-semibold">{t.team}</th>
-                <th className="px-2 py-2.5 text-center font-semibold">{t.pld}</th>
-                <th className="px-2 py-2.5 text-center font-semibold">{t.gd}</th>
-                <th className="px-2 py-2.5 text-center font-bold text-neutral-700">{t.pts}</th>
-                <th className="px-2 py-2.5 text-center font-semibold">{t.oPts}</th>
-                <th className="px-2 py-2.5 text-center font-semibold" title="oPts - Pts">{t.diff}</th>
+                <SortTh col="pld" label={t.pld} sort={sort} onClick={toggleSort} />
+                <SortTh col="gf" label={t.gf} sort={sort} onClick={toggleSort} />
+                <SortTh col="ga" label={t.ga} sort={sort} onClick={toggleSort} />
+                <SortTh col="gd" label={t.gd} sort={sort} onClick={toggleSort} />
+                <SortTh col="pts" label={t.pts} sort={sort} onClick={toggleSort} bold />
+                <SortTh col="opts" label={t.oPts} sort={sort} onClick={toggleSort} />
+                <SortTh col="diff" label={t.diff} sort={sort} onClick={toggleSort} title="oPts - Pts" />
                 <th className="px-3 py-2.5 text-center font-semibold">{t.form}</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => {
-                const z = zoneOf(i), delta = +(r.opts - r.pts).toFixed(1);
+              {sorted.map((r, i) => {
+                const z = showZones ? zoneOf(i) : null;
+                const delta = +(r.opts - r.pts).toFixed(1);
                 return (
                   <tr key={r.k} className={`border-t border-neutral-100 ${r.udo ? "" : "hover:bg-neutral-50"}`} style={r.udo ? { backgroundColor: "#fdecec" } : undefined}>
                     <td className="relative px-2 py-2 text-center tabular-nums text-neutral-500">
@@ -339,6 +381,8 @@ function Dashboard({ t }) {
                     </td>
                     <td className="px-3 py-2"><div className="flex items-center gap-2.5"><Crest team={r} /><span className={r.udo ? "font-bold" : "font-medium"} style={r.udo ? { color: RED } : undefined}>{r.n}</span></div></td>
                     <td className="px-2 py-2 text-center tabular-nums text-neutral-600">{r.pld}</td>
+                    <td className="px-2 py-2 text-center tabular-nums text-neutral-600">{r.gf}</td>
+                    <td className="px-2 py-2 text-center tabular-nums text-neutral-600">{r.ga}</td>
                     <td className="px-2 py-2 text-center tabular-nums text-neutral-600">{r.gd > 0 ? `+${r.gd}` : r.gd}</td>
                     <td className="px-2 py-2 text-center font-bold tabular-nums">{r.pts}</td>
                     <td className="px-2 py-2 text-center tabular-nums text-neutral-500">{r.opts.toFixed(1)}</td>
@@ -388,20 +432,49 @@ function ProbMini({ label, v, color }) {
 /* =========================================================== SIMULADOR ==== */
 function Simulator({ t }) {
   const [results, setResults] = useState({});
-  const base = useMemo(() => Object.fromEntries(MOCK.map((r) => [r.k, { ...r }])), []);
-  const baseOrder = useMemo(() => [...MOCK].sort((a, b) => b.pts - a.pts || b.gd - a.gd).map((r) => r.k), []);
+  const [fixtures, setFixtures] = useState(FIXTURES_J9);   // [[homeKey, awayKey], ...]
+  const [jornada, setJornada] = useState(9);
+  const [base, setBase] = useState(() => Object.fromEntries(MOCK.map((r) => [r.k, { ...r }])));
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const [md, st] = await Promise.all([
+          api.matchday().catch(() => null),
+          api.standings().catch(() => null),
+        ]);
+        if (!alive) return;
+        if (st) {
+          const b = {};
+          adaptStandings(st).forEach((r) => { b[r.k] = { ...r }; });
+          setBase(b);
+        }
+        if (md?.matches?.length) {
+          setJornada(md.jornada);
+          setFixtures(md.matches.map((m) => [NAME_TO_KEY[m.home] || m.home_slug, NAME_TO_KEY[m.away] || m.away_slug]));
+        }
+      } catch { /* queda o mock */ }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  const baseOrder = useMemo(
+    () => Object.values(base).sort((a, b) => b.pts - a.pts || b.gd - a.gd).map((r) => r.k),
+    [base]
+  );
 
   const projected = useMemo(() => {
     const map = Object.fromEntries(Object.entries(base).map(([k, v]) => [k, { ...v }]));
-    FIXTURES_J9.forEach(([h, a], i) => {
+    fixtures.forEach(([h, a], i) => {
       const res = results[i];
-      if (!res) return;
+      if (!res || !map[h] || !map[a]) return;
       if (res === "1") { map[h].pts += 3; map[h].gd += 1; map[a].gd -= 1; }
       else if (res === "2") { map[a].pts += 3; map[a].gd -= 1; map[h].gd += 1; }
       else { map[h].pts += 1; map[a].pts += 1; }
     });
     return Object.values(map).sort((x, y) => y.pts - x.pts || y.gd - x.gd);
-  }, [results, base]);
+  }, [results, base, fixtures]);
 
   const zoneOf = (i) => (i === 0 ? "promo" : i <= 4 ? "po" : i >= 15 ? "rel" : null);
   const fixedCount = Object.keys(results).length;
@@ -413,13 +486,16 @@ function Simulator({ t }) {
       )} />
 
       <section className="mb-5 rounded-lg border border-neutral-200 bg-white p-4">
-        <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-500">{t.jornada} 9</h3>
+        <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-500">{t.jornada} {jornada}</h3>
         <div className="grid gap-2 sm:grid-cols-2">
-          {FIXTURES_J9.map(([h, a], i) => (
+          {fixtures.map(([h, a], i) => {
+            const th = T[h] || { n: h, c: "#888", s: "?" };
+            const ta = T[a] || { n: a, c: "#888", s: "?" };
+            return (
             <div key={i} className="flex items-center justify-between gap-2 rounded-md border border-neutral-100 px-3 py-2">
               <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5">
-                <span className={`truncate text-xs ${T[h].udo ? "font-bold" : "text-neutral-700"}`} style={T[h].udo ? { color: RED } : undefined}>{T[h].n}</span>
-                <Crest team={T[h]} size={18} />
+                <span className={`truncate text-xs ${th.udo ? "font-bold" : "text-neutral-700"}`} style={th.udo ? { color: RED } : undefined}>{th.n}</span>
+                <Crest team={th} size={18} />
               </div>
               <div className="flex shrink-0 gap-1">
                 {["1", "X", "2"].map((v) => (
@@ -429,11 +505,11 @@ function Simulator({ t }) {
                 ))}
               </div>
               <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                <Crest team={T[a]} size={18} />
-                <span className={`truncate text-xs ${T[a].udo ? "font-bold" : "text-neutral-700"}`} style={T[a].udo ? { color: RED } : undefined}>{T[a].n}</span>
+                <Crest team={ta} size={18} />
+                <span className={`truncate text-xs ${ta.udo ? "font-bold" : "text-neutral-700"}`} style={ta.udo ? { color: RED } : undefined}>{ta.n}</span>
               </div>
             </div>
-          ))}
+          ); })}
         </div>
       </section>
 
@@ -460,20 +536,73 @@ function Simulator({ t }) {
   );
 }
 
+/* Fallback do Centro de Mando (mentres non hai datos reais / liga sen empezar). */
+const MOCK_HUB = {
+  usPos: 6, themPos: 9,
+  us: { pts: 14, gf: 12, ga: 9, form: ["L","W","D","W","W"] },
+  them: { pts: 11, gf: 16, ga: 14, form: ["L","W","D","D","L"] },
+};
+
 /* ======================================================= CENTRO DE MANDO == */
 function CommandCenter({ t }) {
-  const us = MOCK.find((r) => r.k === "ourense");
-  const them = MOCK.find((r) => r.k === "mirandes");
-  const usPos = [...MOCK].sort((a,b)=>b.pts-a.pts||b.gd-a.gd).findIndex(r=>r.k==="ourense")+1;
-  const themPos = [...MOCK].sort((a,b)=>b.pts-a.pts||b.gd-a.gd).findIndex(r=>r.k==="mirandes")+1;
-  // Próximo partido: Mirandés (local) vs UD Ourense (visitante).
-  // oGoals respectando a orde: primeiro o local, segundo o visitante.
-  const udoIsHome = false; // neste mock a UDO xoga fóra
-  const ogHome = udoIsHome ? 1.94 : 2.81; // local
-  const ogAway = udoIsHome ? 2.81 : 1.94; // visitante
-  const next = { win: 28, draw: 23, loss: 49, likely: [1, 2] };
-  const evo = [[1,0,1.2],[2,1,2.4],[3,1,3.6],[4,2,4.9],[5,5,6.3],[6,5,8.6],[7,5,9.1],[8,6,10.5]];
-  const gap = evo[evo.length-1][2] - evo[evo.length-1][1];
+  // Estado inicial = mock (fallback mentres non cargue ou se a liga non empezou).
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const [nx, vs, ev] = await Promise.all([
+          api.nextMatch("UD Ourense").catch(() => null),
+          api.headToHead("ourense").catch(() => null),
+          api.evolution("ourense").catch(() => null),
+        ]);
+        if (!alive) return;
+        setData({ next: nx?.next || null, vs, evo: ev?.evolution || [] });
+      } catch { /* queda o mock */ }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  // ---- valores: reais se hai datos, mock se non ----
+  const vs = data?.vs;
+  const nx = data?.next;
+  const usName = "UD Ourense";
+  const themName = vs?.them?.team || nx?.away && nx.home === usName ? nx?.away : (vs?.them?.team || "CD Mirandés");
+
+  // metadatos de escudo/cor por nome
+  const teamMeta = (name) => {
+    const k = NAME_TO_KEY[name];
+    return T[k] ? { ...T[k], k } : { n: name, c: "#888", s: (name || "?").slice(0, 3).toUpperCase(), k: "" };
+  };
+  const us = teamMeta(usName);
+  const them = teamMeta(vs?.them?.team || "CD Mirandés");
+
+  const usPos = vs?.us?.pos ?? MOCK_HUB.usPos;
+  const themPos = vs?.them?.pos ?? MOCK_HUB.themPos;
+  const usStats = vs?.us || MOCK_HUB.us;
+  const themStats = vs?.them || MOCK_HUB.them;
+
+  // próximo partido: quen é local?
+  const udoIsHome = nx ? nx.home === usName : false;
+  const exp = nx?.expected;
+  // 1-X-2 desde a óptica da UDO
+  const win = exp ? Math.round((udoIsHome ? exp.home_win : exp.away_win) * 100) : 28;
+  const draw = exp ? Math.round(exp.draw * 100) : 23;
+  const loss = exp ? Math.round((udoIsHome ? exp.away_win : exp.home_win) * 100) : 49;
+  const ogHome = exp?.oGoals_home ?? (udoIsHome ? 1.94 : 2.81);
+  const ogAway = exp?.oGoals_away ?? (udoIsHome ? 2.81 : 1.94);
+  const likely = exp?.likely_score
+    ? (udoIsHome ? exp.likely_score : [exp.likely_score[1], exp.likely_score[0]])
+    : [1, 2];
+
+  // evolución: reais se hai, mock se non
+  const evo = (data?.evo && data.evo.length)
+    ? data.evo.map((e) => [e.jornada, e.pts, e.oPts])
+    : [[1,0,1.2],[2,1,2.4],[3,1,3.6],[4,2,4.9],[5,5,6.3],[6,5,8.6],[7,5,9.1],[8,6,10.5]];
+  const gap = evo.length ? evo[evo.length-1][2] - evo[evo.length-1][1] : 0;
+
+  const next = { win, draw, loss, likely };
 
   return (
     <div>
@@ -507,14 +636,14 @@ function CommandCenter({ t }) {
         <section className="rounded-lg border border-neutral-200 bg-white p-4">
           <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-500">{t.h2h}</h3>
           <div className="mb-2 grid grid-cols-3 items-center"><div className="flex justify-start"><Crest team={us} size={28} /></div><span /><div className="flex justify-end"><Crest team={them} size={28} /></div></div>
-          {[[t.pos, `${usPos}º`, `${themPos}º`, usPos < themPos],[t.pts, us.pts, them.pts, us.pts > them.pts],["GF", us.gf, them.gf, us.gf > them.gf],["GC", us.ga, them.ga, us.ga < them.ga]].map(([label, a, b, better]) => (
+          {[[t.pos, `${usPos}º`, `${themPos}º`, usPos < themPos],[t.pts, usStats.pts, themStats.pts, usStats.pts > themStats.pts],["GF", usStats.gf, themStats.gf, usStats.gf > themStats.gf],["GC", usStats.ga, themStats.ga, usStats.ga < themStats.ga]].map(([label, a, b, better]) => (
             <div key={label} className="grid grid-cols-3 items-center py-1 text-sm">
               <span className="text-left font-bold tabular-nums" style={better ? { color: RED } : { color: "#bbb" }}>{a}</span>
               <span className="text-center text-[10px] uppercase text-neutral-400">{label}</span>
               <span className={`text-right font-bold tabular-nums ${!better ? "" : "text-neutral-400"}`}>{b}</span>
             </div>
           ))}
-          <div className="grid grid-cols-3 items-center pt-1"><div className="flex justify-start"><FormDots form={us.F} /></div><span className="text-center text-[10px] uppercase text-neutral-400">{t.hubForm}</span><div className="flex justify-end"><FormDots form={them.F} /></div></div>
+          <div className="grid grid-cols-3 items-center pt-1"><div className="flex justify-start"><FormDots form={usStats.form || []} /></div><span className="text-center text-[10px] uppercase text-neutral-400">{t.hubForm}</span><div className="flex justify-end"><FormDots form={themStats.form || []} /></div></div>
         </section>
       </div>
 
