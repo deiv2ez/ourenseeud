@@ -52,7 +52,7 @@ const I18N = {
     ratingHelp: "oRating: nota propia de rendemento (media da tempada), con datos reais.",
     mockNote: "Datos simulados para ver a estética · a liga real arranca a cero o 30/08/2026",
     mdTitle: "Previa da xornada", mdSub: "Predición do modelo para cada partido",
-    mdExpected: "Resultado esperado", mdProb: "Probabilidades", mdNoData: "Aínda non hai xornada dispoñible.",
+    mdExpected: "Resultado esperado", mdProb: "Probabilidades", mdNoData: "Aínda non hai xornada dispoñible.", loading: "Cargando datos…", loadErr: "Non se puideron cargar os datos. Proba a recargar.",
     tpBack: "← Volver á clasificación", tpNext: "Próximo partido", tpCalendar: "Calendario",
     tpPlayed: "Xogados", tpUpcoming: "Pendentes", tpHome: "Casa", tpAway: "Fóra", tpJ: "X",
     tpStyle: "Perfil de estilo", tpOffense: "Ataque", tpDefense: "Defensa",
@@ -83,7 +83,7 @@ const I18N = {
     ratingHelp: "oRating: nota propia de rendimiento (media de temporada), con datos reales.",
     mockNote: "Datos simulados para ver la estética · la liga real arranca a cero el 30/08/2026",
     mdTitle: "Previa de la jornada", mdSub: "Predicción del modelo para cada partido",
-    mdExpected: "Resultado esperado", mdProb: "Probabilidades", mdNoData: "Aún no hay jornada disponible.",
+    mdExpected: "Resultado esperado", mdProb: "Probabilidades", mdNoData: "Aún no hay jornada disponible.", loading: "Cargando datos…", loadErr: "No se pudieron cargar los datos. Prueba a recargar.",
     tpBack: "← Volver a la clasificación", tpNext: "Próximo partido", tpCalendar: "Calendario",
     tpPlayed: "Jugados", tpUpcoming: "Pendientes", tpHome: "Casa", tpAway: "Fuera", tpJ: "J",
     tpStyle: "Perfil de estilo", tpOffense: "Ataque", tpDefense: "Defensa",
@@ -198,6 +198,16 @@ function FormDots({ form }) {
 }
 function Bar({ value, color }) {
   return <div className="h-2.5 w-full overflow-hidden rounded bg-neutral-200"><div className="h-full rounded transition-all" style={{ width: `${Math.min(100, value)}%`, backgroundColor: color }} /></div>;
+}
+
+/* Estado de carga discreto (mentres o backend esperta ou responde). */
+function Loading({ text }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-neutral-200 bg-white py-16 text-neutral-400">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-neutral-200 border-t-neutral-500" />
+      {text && <span className="text-sm">{text}</span>}
+    </div>
+  );
 }
 
 /* Cabeceira de táboa clicable para ordenar. Amosa ▲/▼ na columna activa. */
@@ -452,8 +462,8 @@ function TeamProfile({ t, slug, onBack }) {
 /* =========================================================== DASHBOARD ==== */
 function Dashboard({ t, onTeamClick }) {
   const [view, setView] = useState("table");
-  const [rows, setRows] = useState(() => [...MOCK].sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf));
-  const [live, setLive] = useState(false); // true se cargaron datos reais
+  const [rows, setRows] = useState(null);   // null = cargando; [] = erro/baleiro
+  const [err, setErr] = useState(false);
   const [resume, setResume] = useState(null);
 
   useEffect(() => {
@@ -484,9 +494,9 @@ function Dashboard({ t, onTeamClick }) {
         });
         adapted.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
         setRows(adapted);
-        setLive(true);
       } catch {
-        // se o backend está durmido ou falla, quedamos co mock (xa cargado)
+        // backend durmido/caído: amosamos aviso de recarga, NON datos falsos
+        if (alive) { setRows([]); setErr(true); }
       }
     })();
     return () => { alive = false; };
@@ -498,6 +508,7 @@ function Dashboard({ t, onTeamClick }) {
   const [sort, setSort] = useState({ col: "default", dir: "desc" });
 
   const sorted = useMemo(() => {
+    if (!rows) return [];
     const arr = [...rows];
     if (sort.col === "default") {
       return arr.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
@@ -530,7 +541,11 @@ function Dashboard({ t, onTeamClick }) {
         ))}
       </div>
 
-      {view === "table" ? (
+      {rows === null ? (
+        <Loading text={t.loading} />
+      ) : err ? (
+        <div className="rounded-lg border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-400">{t.loadErr}</div>
+      ) : view === "table" ? (
         <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
           <table className="w-full min-w-[720px] border-collapse text-sm">
             <thead className="bg-neutral-100 text-xs uppercase tracking-wide text-neutral-500">
@@ -732,39 +747,43 @@ function Matchday({ t }) {
 /* =========================================================== SIMULADOR ==== */
 function Simulator({ t }) {
   const [results, setResults] = useState({});
-  const [fixtures, setFixtures] = useState(FIXTURES_J9);   // [[homeKey, awayKey], ...]
-  const [jornada, setJornada] = useState(9);
-  const [base, setBase] = useState(() => Object.fromEntries(MOCK.map((r) => [r.k, { ...r }])));
+  const [fixtures, setFixtures] = useState(null);   // null = cargando
+  const [jornada, setJornada] = useState(null);
+  const [base, setBase] = useState(null);
+  const [err, setErr] = useState(false);
 
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
         const [md, st] = await Promise.all([
-          api.matchday().catch(() => null),
-          api.standings().catch(() => null),
+          api.matchday(),
+          api.standings(),
         ]);
         if (!alive) return;
-        if (st) {
-          const b = {};
-          adaptStandings(st).forEach((r) => { b[r.k] = { ...r }; });
-          setBase(b);
-        }
+        const b = {};
+        adaptStandings(st).forEach((r) => { b[r.k] = { ...r }; });
+        setBase(b);
         if (md?.matches?.length) {
           setJornada(md.jornada);
           setFixtures(md.matches.map((m) => [NAME_TO_KEY[m.home] || m.home_slug, NAME_TO_KEY[m.away] || m.away_slug]));
+        } else {
+          setFixtures([]);
         }
-      } catch { /* queda o mock */ }
+      } catch {
+        if (alive) { setErr(true); setFixtures([]); setBase({}); }
+      }
     })();
     return () => { alive = false; };
   }, []);
 
   const baseOrder = useMemo(
-    () => Object.values(base).sort((a, b) => b.pts - a.pts || b.gd - a.gd).map((r) => r.k),
+    () => base ? Object.values(base).sort((a, b) => b.pts - a.pts || b.gd - a.gd).map((r) => r.k) : [],
     [base]
   );
 
   const projected = useMemo(() => {
+    if (!base || !fixtures) return [];
     const map = Object.fromEntries(Object.entries(base).map(([k, v]) => [k, { ...v }]));
     fixtures.forEach(([h, a], i) => {
       const res = results[i];
@@ -778,6 +797,13 @@ function Simulator({ t }) {
 
   const zoneOf = (i) => (i === 0 ? "promo" : i <= 4 ? "po" : i >= 15 ? "rel" : null);
   const fixedCount = Object.keys(results).length;
+
+  if (fixtures === null || base === null) {
+    return <div><SectionHead title={t.simTitle} sub={t.simSub} /><Loading text={t.loading} /></div>;
+  }
+  if (err) {
+    return <div><SectionHead title={t.simTitle} sub={t.simSub} /><div className="rounded-lg border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-400">{t.loadErr}</div></div>;
+  }
 
   return (
     <div>
@@ -904,6 +930,10 @@ function CommandCenter({ t }) {
   const hasEvo = evo.length > 0;
 
   const next = { win, draw, loss, likely };
+
+  if (data === null) {
+    return <div><SectionHead title="UD Ourense" sub={t.nav.hub} accent /><Loading text={t.loading} /></div>;
+  }
 
   return (
     <div>
