@@ -149,6 +149,62 @@ class SeasonModel:
             out[t]["resume"] = round(out[t]["resume"], 1)
         return out
 
+    # ------------------------------------------------------ estilo por equipo --
+    def team_style(self, played: list[dict]) -> dict[str, dict]:
+        """
+        Perfil de ESTILO estatístico de cada equipo, derivado só dos goles reais
+        (datos que si temos). Catro eixes normalizados 0-100 respecto á liga:
+          · offense: potencia ofensiva (goles a favor por partido vs media liga)
+          · defense: solidez defensiva (goles en contra, invertido)
+          · home:    rendemento na casa (puntos por partido en casa)
+          · away:    rendemento fóra (puntos por partido fóra)
+        Non capta o estilo cualitativo (bloque baixo, etc.) — iso é unha nota
+        editable á parte. Isto é o perfil obxectivo, actualízase só, nunca caduca.
+        """
+        agg = {t: {"gf": 0, "ga": 0, "pl": 0,
+                   "hpts": 0, "hpl": 0, "apts": 0, "apl": 0} for t in self.teams}
+        for m in played:
+            h, a, hg, ag = m["home"], m["away"], int(m["hg"]), int(m["ag"])
+            for t, gf, ga, is_home in ((h, hg, ag, True), (a, ag, hg, False)):
+                if t not in agg:
+                    continue
+                s = agg[t]
+                s["gf"] += gf; s["ga"] += ga; s["pl"] += 1
+                pts = 3 if gf > ga else 1 if gf == ga else 0
+                if is_home: s["hpts"] += pts; s["hpl"] += 1
+                else: s["apts"] += pts; s["apl"] += 1
+
+        # medias de liga para normalizar
+        tot_pl = sum(s["pl"] for s in agg.values()) or 1
+        avg_gf = sum(s["gf"] for s in agg.values()) / tot_pl
+        avg_ga = sum(s["ga"] for s in agg.values()) / tot_pl
+
+        def scale(val, ref, lo=0.5, hi=1.5):
+            # razón val/ref levada a 0-100 (ref=50); saturada nos extremos
+            if ref <= 0:
+                return 50
+            r = val / ref
+            r = max(lo, min(hi, r))
+            return round((r - lo) / (hi - lo) * 100)
+
+        out = {}
+        for t, s in agg.items():
+            pl = s["pl"] or 1
+            gf_pg = s["gf"] / pl
+            ga_pg = s["ga"] / pl
+            hppg = s["hpts"] / (s["hpl"] or 1)
+            appg = s["apts"] / (s["apl"] or 1)
+            out[t] = {
+                "played": s["pl"],
+                "offense": scale(gf_pg, avg_gf),
+                "defense": 100 - scale(ga_pg, avg_ga),  # menos goles en contra = máis sólido
+                "home": round(min(100, hppg / 3 * 100)),
+                "away": round(min(100, appg / 3 * 100)),
+                "gf_pg": round(gf_pg, 2),
+                "ga_pg": round(ga_pg, 2),
+            }
+        return out
+
     # -------------------------------------------------- lambdas de un partido --
     def _lambdas(self, home: str, away: str) -> tuple[float, float]:
         h, a = self.strength[home], self.strength[away]
