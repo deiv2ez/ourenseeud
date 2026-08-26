@@ -1,0 +1,17 @@
+# Dependencias
+node_modules/
+__pycache__/
+*.pyc
+
+# Datos sensibles / xerados (NON subir a git)
+backend/data/users.json          # contén hashes de contrasinais
+backend/data/api_cache/          # caché da API, rexenérase soa
+.env
+.env.local
+
+# Builds
+frontend/dist/
+*.log
+
+# Sistema
+.DS_Store

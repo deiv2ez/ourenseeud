@@ -1,0 +1,28 @@
+# render.yaml — Configuración de despregue do backend en Render.
+#
+# Que fai: define un servizo web Python que corre a API FastAPI. Render le este
+# ficheiro automaticamente ao conectar o repo, así que non hai que configurar
+# nada a man na súa web (só darlle a "Apply").
+#
+# Pasos (só clics, ver DEPLOY.md):
+#   1. Subir o repo a GitHub.
+#   2. En Render: New → Blueprint → escoller o repo. Render le este ficheiro.
+#   3. Encher as variables de entorno marcadas como sync:false (ver abaixo).
+#   4. Apply. Listo.
+
+services:
+  - type: web
+    name: ourenseeud-api
+    runtime: python
+    rootDir: backend
+    plan: free                       # capa gratuíta (dorme tras 15 min sen uso)
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    envVars:
+      - key: JWT_SECRET              # clave para asinar tokens de sesión
+        generateValue: true          # Render xera unha clave segura automaticamente
+      - key: API_FOOTBALL_KEY        # a túa chave de API-Football (plan free)
+        sync: false                  # introdúcela ti na web de Render (non vai a git)
+      - key: ALLOWED_ORIGIN          # dominio do frontend en Vercel, para CORS
+        sync: false                  # ex: https://ourenseeud.vercel.app
