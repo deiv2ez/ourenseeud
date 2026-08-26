@@ -29,12 +29,16 @@ const ZONE = {
 const I18N = {
   gl: {
     tagline: "a nosa vida",
-    nav: { dashboard: "Clasificación", sim: "Simulador", hub: "UD Ourense", squad: "Plantilla" },
+    nav: { dashboard: "Clasificación", sim: "Simulador", matchday: "Xornada", hub: "UD Ourense", squad: "Plantilla" },
     season: "Tempada 2026-27 · 1ª RFEF · Grupo 1",
     team: "Equipo", pld: "PX", gf: "GF", ga: "GC", gd: "DG", pts: "Ptos", form: "Forma",
     oPts: "oPts", diff: "Δ", xg: "xG",
     champ: "Campión", playoff: "Playoff", releg: "Descenso",
     vTable: "Táboa", vProbs: "Probabilidades",
+    vResume: "Currículum",
+    resumeTitle: "Currículum — valor real dos puntos",
+    resumeSub: "Pondera a dificultade do rival e onde se xogou. Δ = currículum − puntos reais.",
+    resumeCol: "Currículum",
     probsTitle: "Probabilidades de tempada (Monte Carlo)", sims: "simulacións",
     legend: { promo: "Ascenso directo (1º)", po: "Playoff (2º-5º)", rel: "Descenso (16º-20º)" },
     simTitle: "Qué pasa se...", simSub: "Fixa resultados da xornada e mira como cambia todo.",
@@ -47,15 +51,23 @@ const I18N = {
     rating: "oRating", value: "Valor", years: "anos",
     ratingHelp: "oRating: nota propia de rendemento (media da tempada), con datos reais.",
     mockNote: "Datos simulados para ver a estética · a liga real arranca a cero o 30/08/2026",
+    mdTitle: "Previa da xornada", mdSub: "Predición do modelo para cada partido",
+    mdExpected: "Resultado esperado", mdProb: "Probabilidades", mdNoData: "Aínda non hai xornada dispoñible.",
+    tpBack: "← Volver á clasificación", tpNext: "Próximo partido", tpCalendar: "Calendario",
+    tpPlayed: "Xogados", tpUpcoming: "Pendentes", tpHome: "Casa", tpAway: "Fóra", tpJ: "X",
   },
   es: {
     tagline: "a nosa vida",
-    nav: { dashboard: "Clasificación", sim: "Simulador", hub: "UD Ourense", squad: "Plantilla" },
+    nav: { dashboard: "Clasificación", sim: "Simulador", matchday: "Jornada", hub: "UD Ourense", squad: "Plantilla" },
     season: "Temporada 2026-27 · 1ª RFEF · Grupo 1",
     team: "Equipo", pld: "PJ", gf: "GF", ga: "GC", gd: "DG", pts: "Pts", form: "Forma",
     oPts: "oPts", diff: "Δ", xg: "xG",
     champ: "Campeón", playoff: "Playoff", releg: "Descenso",
     vTable: "Tabla", vProbs: "Probabilidades",
+    vResume: "Currículum",
+    resumeTitle: "Currículum — valor real de los puntos",
+    resumeSub: "Pondera la dificultad del rival y dónde se jugó. Δ = currículum − puntos reales.",
+    resumeCol: "Currículum",
     probsTitle: "Probabilidades de temporada (Monte Carlo)", sims: "simulaciones",
     legend: { promo: "Ascenso directo (1º)", po: "Playoff (2º-5º)", rel: "Descenso (16º-20º)" },
     simTitle: "Qué pasa si...", simSub: "Fija resultados de la jornada y mira cómo cambia todo.",
@@ -68,6 +80,10 @@ const I18N = {
     rating: "oRating", value: "Valor", years: "años",
     ratingHelp: "oRating: nota propia de rendimiento (media de temporada), con datos reales.",
     mockNote: "Datos simulados para ver la estética · la liga real arranca a cero el 30/08/2026",
+    mdTitle: "Previa de la jornada", mdSub: "Predicción del modelo para cada partido",
+    mdExpected: "Resultado esperado", mdProb: "Probabilidades", mdNoData: "Aún no hay jornada disponible.",
+    tpBack: "← Volver a la clasificación", tpNext: "Próximo partido", tpCalendar: "Calendario",
+    tpPlayed: "Jugados", tpUpcoming: "Pendientes", tpHome: "Casa", tpAway: "Fuera", tpJ: "J",
   },
 };
 
@@ -199,10 +215,12 @@ function SortTh({ col, label, sort, onClick, bold, title }) {
 export default function App() {
   const [lang, setLang] = useState("gl");
   const [section, setSection] = useState("dashboard");
+  const [teamSlug, setTeamSlug] = useState(null); // ficha de equipo aberta
   const t = I18N[lang];
 
   const nav = [
     ["dashboard", t.nav.dashboard, "▦"],
+    ["matchday", t.nav.matchday, "◷"],
     ["sim", t.nav.sim, "⇄"],
     ["hub", t.nav.hub, "◆"],
     ["squad", t.nav.squad, "◫"],
@@ -224,7 +242,7 @@ export default function App() {
           {/* navegación */}
           <nav className="mt-2 px-2">
             {nav.map(([k, label, icon]) => (
-              <button key={k} onClick={() => setSection(k)}
+              <button key={k} onClick={() => { setSection(k); setTeamSlug(null); }}
                 className={`mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
                   section === k ? "text-white" : "text-neutral-600 hover:bg-neutral-100"
                 }`}
@@ -251,10 +269,17 @@ export default function App() {
       {/* ---------- contido ---------- */}
       <main className="min-w-0 flex-1">
         <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
-          {section === "dashboard" && <Dashboard t={t} />}
-          {section === "sim" && <Simulator t={t} />}
-          {section === "hub" && <CommandCenter t={t} />}
-          {section === "squad" && <Squad t={t} />}
+          {teamSlug ? (
+            <TeamProfile t={t} slug={teamSlug} onBack={() => setTeamSlug(null)} />
+          ) : (
+            <>
+              {section === "dashboard" && <Dashboard t={t} onTeamClick={setTeamSlug} />}
+              {section === "matchday" && <Matchday t={t} />}
+              {section === "sim" && <Simulator t={t} />}
+              {section === "hub" && <CommandCenter t={t} />}
+              {section === "squad" && <Squad t={t} />}
+            </>
+          )}
           <p className="mt-6 text-center text-xs text-neutral-400">{t.mockNote}</p>
         </div>
       </main>
@@ -283,11 +308,139 @@ function adaptStandings(apiRows) {
   });
 }
 
+/* ======================================================== FICHA EQUIPO ==== */
+function TeamProfile({ t, slug, onBack }) {
+  const [d, setD] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try { const x = await api.teamProfile(slug); if (alive) setD(x); }
+      catch { if (alive) setD({ error: true }); }
+    })();
+    return () => { alive = false; };
+  }, [slug]);
+
+  const meta = (name, s) => {
+    const k = NAME_TO_KEY[name] || s;
+    return T[k] ? { ...T[k], k } : { n: name, c: "#888", s: (name || "?").slice(0, 3).toUpperCase(), k: s };
+  };
+  const back = (
+    <button onClick={onBack} className="mb-4 text-xs font-semibold text-neutral-500 hover:text-neutral-900">{t.tpBack}</button>
+  );
+  if (!d) return <div>{back}<div className="rounded-lg border border-neutral-200 bg-white p-8 text-center text-neutral-400">···</div></div>;
+  if (d.error) return <div>{back}<div className="rounded-lg border border-neutral-200 bg-white p-8 text-center text-neutral-400">—</div></div>;
+
+  const team = meta(d.team, d.slug);
+  const played = d.fixtures.filter((f) => f.played);
+  const upcoming = d.fixtures.filter((f) => !f.played);
+  const oDelta = +(d.oPts - d.pts).toFixed(1);
+
+  return (
+    <div>
+      {back}
+      {/* cabeceira */}
+      <div className="mb-4 flex items-center gap-4 rounded-xl border border-neutral-200 bg-white p-5" style={team.udo ? { borderColor: RED } : undefined}>
+        <Crest team={team} size={64} />
+        <div className="flex-1">
+          <h1 className="text-2xl font-black tracking-tight" style={team.udo ? { color: RED } : undefined}>{d.team}</h1>
+          <div className="mt-1 flex items-center gap-3 text-sm text-neutral-500">
+            <span className="font-bold text-neutral-900">{d.pos}º</span>
+            <span>{d.pts} {t.pts}</span>
+            <FormDots form={d.form} />
+          </div>
+        </div>
+      </div>
+
+      {/* resumo en números */}
+      <div className="mb-4 grid grid-cols-3 gap-3 sm:grid-cols-6">
+        {[[t.pld, d.pld], [t.pts, d.pts], ["GF", d.gf], ["GC", d.ga], [t.gd, d.gd > 0 ? `+${d.gd}` : d.gd], ["oPts", d.oPts]].map(([label, val]) => (
+          <div key={label} className="rounded-lg border border-neutral-200 bg-white p-3 text-center">
+            <div className="text-lg font-black tabular-nums">{val}</div>
+            <div className="text-[10px] uppercase tracking-wide text-neutral-400">{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* oPts vs pts */}
+      <div className="mb-4 inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-semibold" style={{ backgroundColor: oDelta > 0.5 ? "#e7f5ec" : oDelta < -0.5 ? "#fbecea" : "#f3f3f3", color: oDelta > 0.5 ? "#1a8a4a" : oDelta < -0.5 ? "#c0392b" : "#777" }}>
+        {oDelta > 0.5 ? "▲" : oDelta < -0.5 ? "▼" : "="} oPts {d.oPts} vs {d.pts} reais ({oDelta > 0 ? `+${oDelta}` : oDelta})
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* próximo partido */}
+        {d.next && (
+          <section className="rounded-lg border border-neutral-200 bg-white p-4">
+            <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-500">{t.tpNext} · {t.tpJ}{d.next.jornada}</h3>
+            <div className="mb-3 flex items-center justify-center gap-3">
+              {(() => { const h = meta(d.next.home, d.next.home_slug), a = meta(d.next.away, d.next.away_slug); return (<>
+                <div className="flex flex-col items-center gap-1"><Crest team={h} size={34} /><span className="text-[11px]" style={h.udo ? { color: RED } : undefined}>{h.n}</span></div>
+                <div className="text-center"><div className="text-xl font-black tabular-nums">{d.next.likely_score[0]}-{d.next.likely_score[1]}</div><div className="text-[9px] uppercase text-neutral-400">{t.mdExpected}</div></div>
+                <div className="flex flex-col items-center gap-1"><Crest team={a} size={34} /><span className="text-[11px]" style={a.udo ? { color: RED } : undefined}>{a.n}</span></div>
+              </>); })()}
+            </div>
+            <div className="flex h-6 overflow-hidden rounded text-[10px] font-bold text-white">
+              <div className="grid place-items-center" style={{ width: `${d.next.p_win}%`, backgroundColor: "#1a8a4a" }}>{d.next.p_win >= 12 ? `${d.next.p_win}%` : ""}</div>
+              <div className="grid place-items-center" style={{ width: `${d.next.p_draw}%`, backgroundColor: "#9a9a9a" }}>{d.next.p_draw >= 12 ? `${d.next.p_draw}%` : ""}</div>
+              <div className="grid place-items-center" style={{ width: `${d.next.p_loss}%`, backgroundColor: "#c0392b" }}>{d.next.p_loss >= 12 ? `${d.next.p_loss}%` : ""}</div>
+            </div>
+            <div className="mt-1 text-center text-[10px] text-neutral-400">{d.next.is_home ? t.tpHome : t.tpAway} · oG {d.next.oGoals_home}-{d.next.oGoals_away}</div>
+          </section>
+        )}
+
+        {/* calendario */}
+        <section className="rounded-lg border border-neutral-200 bg-white p-4">
+          <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-500">{t.tpCalendar}</h3>
+          <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
+            {played.map((f, i) => {
+              const rv = meta(f.rival, f.rival_slug);
+              const col = f.result === "W" ? "#1a8a4a" : f.result === "L" ? "#c0392b" : "#9a9a9a";
+              return (
+                <div key={`p${i}`} className="flex items-center gap-2 rounded px-2 py-1 text-xs">
+                  <span className="w-6 text-neutral-400 tabular-nums">{t.tpJ}{f.jornada}</span>
+                  <span className="w-8 text-[9px] uppercase text-neutral-400">{f.is_home ? t.tpHome : t.tpAway}</span>
+                  <Crest team={rv} size={16} />
+                  <span className="flex-1 truncate text-neutral-700">{rv.n}</span>
+                  <span className="font-bold tabular-nums">{f.gf}-{f.ga}</span>
+                  <span className="grid h-4 w-4 place-items-center rounded-full text-[9px] font-bold text-white" style={{ backgroundColor: col }}>{f.result}</span>
+                </div>
+              );
+            })}
+            {upcoming.map((f, i) => {
+              const rv = meta(f.rival, f.rival_slug);
+              return (
+                <div key={`u${i}`} className="flex items-center gap-2 rounded px-2 py-1 text-xs opacity-70">
+                  <span className="w-6 text-neutral-400 tabular-nums">{t.tpJ}{f.jornada}</span>
+                  <span className="w-8 text-[9px] uppercase text-neutral-400">{f.is_home ? t.tpHome : t.tpAway}</span>
+                  <Crest team={rv} size={16} />
+                  <span className="flex-1 truncate text-neutral-600">{rv.n}</span>
+                  <span className="text-[10px] text-neutral-400">{f.date || "—"}</span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
 /* =========================================================== DASHBOARD ==== */
-function Dashboard({ t }) {
+function Dashboard({ t, onTeamClick }) {
   const [view, setView] = useState("table");
   const [rows, setRows] = useState(() => [...MOCK].sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf));
   const [live, setLive] = useState(false); // true se cargaron datos reais
+  const [resume, setResume] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const rs = await api.resume();
+        if (alive && Array.isArray(rs)) setResume(rs);
+      } catch { /* sen currículum: a vista amosará aviso */ }
+    })();
+    return () => { alive = false; };
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -344,7 +497,7 @@ function Dashboard({ t }) {
     <div>
       <SectionHead title={t.nav.dashboard} sub={t.season} />
       <div className="mb-4 inline-flex rounded-lg border border-neutral-200 bg-white p-1">
-        {[["table", t.vTable], ["probs", t.vProbs]].map(([k, label]) => (
+        {[["table", t.vTable], ["probs", t.vProbs], ["resume", t.vResume]].map(([k, label]) => (
           <button key={k} onClick={() => setView(k)}
             className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${view === k ? "bg-neutral-900 text-white" : "text-neutral-600 hover:text-neutral-900"}`}>
             {label}
@@ -374,7 +527,7 @@ function Dashboard({ t }) {
                 const z = showZones ? zoneOf(i) : null;
                 const delta = +(r.opts - r.pts).toFixed(1);
                 return (
-                  <tr key={r.k} className={`border-t border-neutral-100 ${r.udo ? "" : "hover:bg-neutral-50"}`} style={r.udo ? { backgroundColor: "#fdecec" } : undefined}>
+                  <tr key={r.k} onClick={() => onTeamClick && onTeamClick(r.k)} className={`cursor-pointer border-t border-neutral-100 ${r.udo ? "" : "hover:bg-neutral-50"}`} style={r.udo ? { backgroundColor: "#fdecec" } : undefined}>
                     <td className="relative px-2 py-2 text-center tabular-nums text-neutral-500">
                       {z && <span className="absolute left-0 top-0 h-full w-1.5" style={{ backgroundColor: ZONE[z].bar }} />}
                       {i + 1}
@@ -394,7 +547,7 @@ function Dashboard({ t }) {
             </tbody>
           </table>
         </div>
-      ) : (
+      ) : view === "probs" ? (
         <div className="rounded-lg border border-neutral-200 bg-white p-4">
           <div className="mb-3 flex items-baseline justify-between">
             <h3 className="text-sm font-bold">{t.probsTitle}</h3>
@@ -413,9 +566,58 @@ function Dashboard({ t }) {
             ))}
           </div>
         </div>
+      ) : (
+        <ResumeView t={t} resume={resume} />
       )}
 
       <Legend t={t} />
+    </div>
+  );
+}
+
+/* Vista Currículum: ranking polo valor real dos puntos. */
+function ResumeView({ t, resume }) {
+  if (!resume) {
+    return <div className="rounded-lg border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-400">···</div>;
+  }
+  const maxRes = Math.max(...resume.map((r) => r.resume), 1);
+  const meta = (r) => {
+    const k = NAME_TO_KEY[r.team] || r.slug;
+    return T[k] ? { ...T[k], k } : { n: r.team, c: "#888", s: (r.team || "?").slice(0, 3).toUpperCase(), k: r.slug };
+  };
+  return (
+    <div className="rounded-lg border border-neutral-200 bg-white p-4">
+      <div className="mb-1 text-sm font-bold">{t.resumeTitle}</div>
+      <p className="mb-3 text-xs text-neutral-500">{t.resumeSub}</p>
+      <div className="space-y-1.5">
+        {resume.map((r, i) => {
+          const m = meta(r);
+          return (
+            <div key={r.slug || i} className="grid grid-cols-[20px_140px_1fr_auto] items-center gap-2 rounded px-2 py-1" style={m.udo ? { backgroundColor: "#fdecec" } : undefined}>
+              <span className="text-center text-xs tabular-nums text-neutral-400">{i + 1}</span>
+              <div className="flex items-center gap-2">
+                <Crest team={m} size={18} />
+                <span className={`truncate text-xs ${m.udo ? "font-bold" : "text-neutral-700"}`} style={m.udo ? { color: RED } : undefined}>{m.n}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-2.5 flex-1 overflow-hidden rounded bg-neutral-200">
+                  <div className="h-full rounded" style={{ width: `${(r.resume / maxRes) * 100}%`, backgroundColor: m.udo ? RED : "#2f6fd0" }} />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-xs tabular-nums">
+                <span className="font-bold">{r.resume}</span>
+                <span className="text-neutral-400">({r.pts})</span>
+                <span className="w-9 text-right font-medium" style={{ color: r.diff > 0.3 ? "#1a8a4a" : r.diff < -0.3 ? "#c0392b" : "#9a9a9a" }}>
+                  {r.diff > 0 ? `+${r.diff}` : r.diff}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-3 text-[10px] text-neutral-400">
+        {t.resumeCol} · (puntos reais) · Δ
+      </div>
     </div>
   );
 }
@@ -425,6 +627,79 @@ function ProbMini({ label, v, color }) {
     <div>
       <div className="mb-0.5 flex justify-between text-[10px] text-neutral-500"><span>{label}</span><span className="tabular-nums font-medium">{v}%</span></div>
       <Bar value={v} color={color} />
+    </div>
+  );
+}
+
+/* ============================================================= XORNADA ==== */
+function Matchday({ t }) {
+  const [jornada, setJornada] = useState(null);
+  const [matches, setMatches] = useState(null); // null = cargando
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const md = await api.matchday();
+        if (!alive) return;
+        setJornada(md?.jornada ?? null);
+        setMatches(md?.matches || []);
+      } catch { if (alive) setMatches([]); }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  const meta = (name, slug) => {
+    const k = NAME_TO_KEY[name] || slug;
+    return T[k] ? { ...T[k], k } : { n: name, c: "#888", s: (name || "?").slice(0, 3).toUpperCase(), k: slug };
+  };
+
+  return (
+    <div>
+      <SectionHead title={t.mdTitle} sub={jornada ? `${t.jornada} ${jornada} · ${t.mdSub}` : t.mdSub} />
+      {matches === null ? (
+        <div className="rounded-lg border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-400">···</div>
+      ) : matches.length === 0 ? (
+        <div className="rounded-lg border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-400">{t.mdNoData}</div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {matches.map((m, i) => {
+            const home = meta(m.home, m.home_slug), away = meta(m.away, m.away_slug);
+            const ls = m.likely_score || [0, 0];
+            return (
+              <div key={i} className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
+                {/* emparejamento + marcador esperado */}
+                <div className="flex items-center justify-between gap-2 px-4 pt-4">
+                  <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+                    <Crest team={home} size={38} />
+                    <span className={`text-center text-xs leading-tight ${home.udo ? "font-bold" : "text-neutral-700"}`} style={home.udo ? { color: RED } : undefined}>{home.n}</span>
+                  </div>
+                  <div className="flex flex-col items-center px-2">
+                    <div className="text-2xl font-black tabular-nums">{ls[0]}<span className="mx-1 text-neutral-300">-</span>{ls[1]}</div>
+                    <div className="text-[9px] uppercase tracking-wide text-neutral-400">{t.mdExpected}</div>
+                    <div className="mt-0.5 text-[10px] tabular-nums text-neutral-400">oG {m.oGoals_home}-{m.oGoals_away}</div>
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+                    <Crest team={away} size={38} />
+                    <span className={`text-center text-xs leading-tight ${away.udo ? "font-bold" : "text-neutral-700"}`} style={away.udo ? { color: RED } : undefined}>{away.n}</span>
+                  </div>
+                </div>
+                {/* barra de probabilidades 1-X-2 */}
+                <div className="mt-3 px-4 pb-4">
+                  <div className="flex h-6 overflow-hidden rounded text-[10px] font-bold text-white">
+                    <div className="grid place-items-center" style={{ width: `${m.p_home}%`, backgroundColor: "#1a8a4a" }} title={`1: ${m.p_home}%`}>{m.p_home >= 12 ? `${m.p_home}%` : ""}</div>
+                    <div className="grid place-items-center" style={{ width: `${m.p_draw}%`, backgroundColor: "#9a9a9a" }} title={`X: ${m.p_draw}%`}>{m.p_draw >= 12 ? `${m.p_draw}%` : ""}</div>
+                    <div className="grid place-items-center" style={{ width: `${m.p_away}%`, backgroundColor: "#c0392b" }} title={`2: ${m.p_away}%`}>{m.p_away >= 12 ? `${m.p_away}%` : ""}</div>
+                  </div>
+                  <div className="mt-1 flex justify-between text-[9px] uppercase text-neutral-400">
+                    <span>1 {home.s}</span><span>X</span><span>2 {away.s}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -624,11 +899,20 @@ function CommandCenter({ t }) {
           <div className="mb-3 flex justify-between text-[10px] text-neutral-500"><span>{t.win}</span><span>{t.draw}</span><span>{t.loss}</span></div>
           <div className="grid grid-cols-2 gap-2 text-center">
             <div className="rounded bg-neutral-50 p-2"><div className="text-[10px] text-neutral-500">{t.likely}</div><div className="text-xl font-black tabular-nums">{next.likely[0]}-{next.likely[1]}</div></div>
-            <div className="rounded bg-neutral-50 p-2"><div className="text-[10px] text-neutral-500">oGoals</div><div className="text-xl font-black tabular-nums">
-              <span style={udoIsHome ? { color: RED } : { color: "#9a9a9a" }}>{ogHome}</span>
-              <span className="text-neutral-300">·</span>
-              <span style={udoIsHome ? { color: "#9a9a9a" } : { color: RED }}>{ogAway}</span>
-            </div></div>
+            <div className="rounded bg-neutral-50 p-2">
+              <div className="text-[10px] text-neutral-500">oGoals</div>
+              <div className="flex items-center justify-center gap-2">
+                <div className="flex flex-col items-center">
+                  <span className="text-xl font-black tabular-nums">{udoIsHome ? ogHome : ogAway}</span>
+                  <span className="text-[9px] uppercase text-neutral-400">{us.s}</span>
+                </div>
+                <span className="text-neutral-300">·</span>
+                <div className="flex flex-col items-center">
+                  <span className="text-xl font-black tabular-nums">{udoIsHome ? ogAway : ogHome}</span>
+                  <span className="text-[9px] uppercase text-neutral-400">{them.s}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
