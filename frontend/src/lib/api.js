@@ -29,6 +29,7 @@ export const api = {
 
 // Centro de Mando
 api.matchday = () => get("/api/matchday");
+api.matchdays = (count = 3) => get(`/api/matchdays?count=${count}`);
 api.evolution = (slug) => get(`/api/team/${slug}/evolution`);
 api.headToHead = (slug) => get(`/api/team/${slug}/vs`);
 
@@ -63,3 +64,8 @@ api.adminSetOdds = (token, jornada, entries) =>
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify({ jornada, entries }),
   }).then((r) => { if (!r.ok) throw new Error("save"); return r.json(); });
+
+api.adminReload = (token) =>
+  fetch(`${BASE}/api/admin/reload`, {
+    method: "POST", headers: { Authorization: `Bearer ${token}` },
+  }).then((r) => { if (!r.ok) throw new Error("reload"); return r.json(); });
