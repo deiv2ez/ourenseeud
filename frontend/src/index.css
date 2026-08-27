@@ -2,4 +2,81 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+/* ============================================================================
+   OURENSE É UD — estilos globais optimizados para experiencia móbil (Android)
+   ============================================================================ */
+
+/* (5) Renderizado tipográfico: Roboto/system-ui primeiro, para HDPI/XHDPI.
+   font-feature-settings 'tnum' → números tabulares aliñados nas clasificacións. */
+:root {
+  font-family: "Roboto", system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-text-size-adjust: 100%;     /* evita que Android reescale o texto */
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* números tabulares por defecto en celas de datos e cifras */
+.tabular-nums, table td, table th, .tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* (5) En pantallas de alta densidade, engrosar lixeiramente os números das táboas
+   para que destaquen. Aplícase a celas numéricas de clasificación. */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  table td.tabular-nums, table td .tabular-nums { font-weight: 600; }
+}
+
+/* (1) Viewport dinámico: a app usa 100dvh en vez de 100vh (ver .app-shell).
+   dvh ten en conta a barra de Chrome/Android que aparece e desaparece. */
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  overscroll-behavior-y: none;         /* evita o "rebote"/recarga por tirar cara abaixo */
+  background: #fafafa;
+}
+.app-shell {
+  min-height: 100vh;                   /* fallback navegadores vellos */
+  min-height: 100dvh;                  /* (1) altura dinámica real en Chrome Android */
+}
+
+/* (2) Scroll horizontal de táboas/matrices: suave e sen disparar o "voltar atrás". */
+.scroll-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;      /* (2) non propaga o xesto de swipe ao sistema */
+  -webkit-overflow-scrolling: touch;   /* (2) inercia nativa en móbil */
+  scrollbar-width: thin;
+}
+.scroll-x::-webkit-scrollbar { height: 4px; }
+.scroll-x::-webkit-scrollbar-thumb { background: rgba(0,0,0,.2); border-radius: 4px; }
+
+/* (3) Feedback táctil estilo Material: resposta rápida de opacidade ao tocar
+   calquera elemento interactivo. Desactiva o "flash" azul por defecto de Android. */
+button, a, [role="button"], select, .tap {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;          /* elimina o atraso de 300ms ao tocar */
+}
+@media (hover: none) and (pointer: coarse) {
+  button:active, a:active, [role="button"]:active, .tap:active, tr.tap:active {
+    opacity: .6;
+    transition: opacity .05s ease;
+  }
+}
+
+/* (4) Áreas de impacto: obxectivos táctiles mínimos de 48x48px en móbil.
+   Aplícase con .touch-target; engade padding transparente sen alterar o deseño. */
+@media (pointer: coarse) {
+  .touch-target { min-height: 48px; min-width: 48px; }
+  /* botóns e selects xa cómodos de tocar */
+  button, select, [role="button"] { min-height: 44px; }
+  /* filas clicables de táboas: altura cómoda para o dedo */
+  tr.tap td { padding-top: .6rem; padding-bottom: .6rem; }
+}
+
+/* Área segura para notch e barra de xestos de Android (viewport-fit=cover). */
+.safe-b { padding-bottom: env(safe-area-inset-bottom, 0); }
+.safe-t { padding-top: env(safe-area-inset-top, 0); }
+
+/* Evita selección accidental de texto ao tocar/manter en elementos de UI. */
+button, .nav-item, th { -webkit-user-select: none; user-select: none; }

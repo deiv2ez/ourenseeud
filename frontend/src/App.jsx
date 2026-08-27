@@ -29,7 +29,7 @@ const ZONE = {
 const I18N = {
   gl: {
     tagline: "a nosa vida",
-    nav: { dashboard: "Clasificación", sim: "Simulador", matchday: "Xornada", hub: "UD Ourense", squad: "Plantilla" },
+    nav: { dashboard: "Clasificación", sim: "Simulador", matchday: "Xornada", analysis: "Análise", hub: "UD Ourense", squad: "Plantilla" },
     season: "Tempada 2026-27 · 1ª RFEF · Grupo 1",
     team: "Equipo", pld: "PX", gf: "GF", ga: "GC", gd: "DG", pts: "Ptos", form: "Forma",
     oPts: "oPts", diff: "Δ", xg: "xG",
@@ -57,10 +57,19 @@ const I18N = {
     tpPlayed: "Xogados", tpUpcoming: "Pendentes", tpHome: "Casa", tpAway: "Fóra", tpJ: "X",
     tpStyle: "Perfil de estilo", tpOffense: "Ataque", tpDefense: "Defensa",
     tpHomePerf: "Local", tpAwayPerf: "Visitante", tpStyleNote: "Nota de estilo (prensa)",
+    anMerited: "Táboa merecida", anProjection: "Proxección", anObjectives: "Que precisa a UDO", anCompare: "Comparador",
+    anMeritedSub: "Clasificación por puntos MERECIDOS (oPts) en vez dos reais.",
+    anProjSub: "Onde acabará cada equipo segundo o modelo (posición media e rango).",
+    anObjSub: "Puntos estimados para cada obxectivo e canto falta.",
+    anCompareSub: "Compara dous equipos lado a lado.",
+    anMeritedPos: "Merecida", anRealPos: "Real", anAvgPos: "Media", anRange: "Rango",
+    anChampion: "Campión", anPlayoffG: "Playoff", anSafety: "Permanencia",
+    anNeed: "Faltan", anThreshold: "Obxectivo", anReachable: "Alcanzable", anPts: "pts",
+    anPick1: "Equipo 1", anPick2: "Equipo 2",
   },
   es: {
     tagline: "a nosa vida",
-    nav: { dashboard: "Clasificación", sim: "Simulador", matchday: "Jornada", hub: "UD Ourense", squad: "Plantilla" },
+    nav: { dashboard: "Clasificación", sim: "Simulador", matchday: "Jornada", analysis: "Análisis", hub: "UD Ourense", squad: "Plantilla" },
     season: "Temporada 2026-27 · 1ª RFEF · Grupo 1",
     team: "Equipo", pld: "PJ", gf: "GF", ga: "GC", gd: "DG", pts: "Pts", form: "Forma",
     oPts: "oPts", diff: "Δ", xg: "xG",
@@ -88,6 +97,15 @@ const I18N = {
     tpPlayed: "Jugados", tpUpcoming: "Pendientes", tpHome: "Casa", tpAway: "Fuera", tpJ: "J",
     tpStyle: "Perfil de estilo", tpOffense: "Ataque", tpDefense: "Defensa",
     tpHomePerf: "Local", tpAwayPerf: "Visitante", tpStyleNote: "Nota de estilo (prensa)",
+    anMerited: "Tabla merecida", anProjection: "Proyección", anObjectives: "Qué necesita la UDO", anCompare: "Comparador",
+    anMeritedSub: "Clasificación por puntos MERECIDOS (oPts) en vez de los reales.",
+    anProjSub: "Dónde acabará cada equipo según el modelo (posición media y rango).",
+    anObjSub: "Puntos estimados para cada objetivo y cuánto falta.",
+    anCompareSub: "Compara dos equipos lado a lado.",
+    anMeritedPos: "Merecida", anRealPos: "Real", anAvgPos: "Media", anRange: "Rango",
+    anChampion: "Campeón", anPlayoffG: "Playoff", anSafety: "Permanencia",
+    anNeed: "Faltan", anThreshold: "Objetivo", anReachable: "Alcanzable", anPts: "pts",
+    anPick1: "Equipo 1", anPick2: "Equipo 2",
   },
 };
 
@@ -235,20 +253,21 @@ export default function App() {
   const nav = [
     ["dashboard", t.nav.dashboard, "▦"],
     ["matchday", t.nav.matchday, "◷"],
+    ["analysis", t.nav.analysis, "◈"],
     ["sim", t.nav.sim, "⇄"],
     ["hub", t.nav.hub, "◆"],
     ["squad", t.nav.squad, "◫"],
   ];
 
   return (
-    <div className="flex min-h-screen bg-neutral-50 font-sans text-neutral-900">
-      {/* ---------- menú lateral ---------- */}
-      <aside className="sticky top-0 flex h-screen w-16 flex-col justify-between border-r border-neutral-200 bg-white sm:w-56">
+    <div className="app-shell flex flex-col sm:flex-row bg-neutral-50 font-sans text-neutral-900">
+      {/* ---------- menú lateral (só escritorio) ---------- */}
+      <aside className="hidden sm:flex sticky top-0 h-screen w-56 flex-col justify-between border-r border-neutral-200 bg-white">
         <div>
           {/* marca */}
-          <div className="flex flex-col items-center gap-2 border-b border-neutral-100 px-3 py-5 sm:flex-row sm:items-center sm:gap-3 sm:px-4">
+          <div className="flex items-center gap-3 border-b border-neutral-100 px-4 py-5">
             <BrandCrest size={52} />
-            <div className="hidden leading-tight sm:block">
+            <div className="leading-tight">
               <div className="text-lg font-black tracking-tight">Ourense é <span style={{ color: RED }}>UD</span></div>
               <div className="text-xs italic text-neutral-400">{t.tagline}</div>
             </div>
@@ -262,7 +281,7 @@ export default function App() {
                 }`}
                 style={section === k ? { backgroundColor: RED } : undefined}>
                 <span className="text-base">{icon}</span>
-                <span className="hidden sm:inline">{label}</span>
+                <span>{label}</span>
               </button>
             ))}
           </nav>
@@ -280,15 +299,32 @@ export default function App() {
         </div>
       </aside>
 
+      {/* ---------- cabeceira móbil (só móbil) ---------- */}
+      <header className="safe-t sticky top-0 z-20 flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-2.5 sm:hidden">
+        <div className="flex items-center gap-2">
+          <BrandCrest size={34} />
+          <span className="text-base font-black tracking-tight">Ourense é <span style={{ color: RED }}>UD</span></span>
+        </div>
+        <div className="flex gap-1">
+          {["gl", "es"].map((l) => (
+            <button key={l} onClick={() => setLang(l)}
+              className={`rounded px-2 py-1 text-xs font-semibold ${lang === l ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-500"}`}>
+              {l.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </header>
+
       {/* ---------- contido ---------- */}
       <main className="min-w-0 flex-1">
-        <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+        <div className="mx-auto max-w-5xl px-4 py-6 pb-24 sm:px-6 sm:pb-6">
           {teamSlug ? (
             <TeamProfile t={t} slug={teamSlug} onBack={() => setTeamSlug(null)} />
           ) : (
             <>
               {section === "dashboard" && <Dashboard t={t} onTeamClick={setTeamSlug} />}
               {section === "matchday" && <Matchday t={t} />}
+              {section === "analysis" && <Analysis t={t} onTeamClick={setTeamSlug} />}
               {section === "sim" && <Simulator t={t} />}
               {section === "hub" && <CommandCenter t={t} />}
               {section === "squad" && <Squad t={t} />}
@@ -297,6 +333,21 @@ export default function App() {
           <p className="mt-6 text-center text-xs text-neutral-400">{t.mockNote}</p>
         </div>
       </main>
+
+      {/* ---------- barra de navegación inferior (só móbil) ---------- */}
+      <nav className="safe-b fixed bottom-0 left-0 right-0 z-20 flex border-t border-neutral-200 bg-white sm:hidden">
+        {nav.map(([k, label, icon]) => {
+          const active = section === k && !teamSlug;
+          return (
+            <button key={k} onClick={() => { setSection(k); setTeamSlug(null); }}
+              className="tap touch-target flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5"
+              style={active ? { color: RED } : { color: "#9a9a9a" }}>
+              <span className="text-lg leading-none">{icon}</span>
+              <span className="text-[10px] font-medium leading-tight">{label}</span>
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 }
@@ -459,6 +510,170 @@ function TeamProfile({ t, slug, onBack }) {
 }
 
 
+/* ============================================================= ANÁLISE ==== */
+function Analysis({ t, onTeamClick }) {
+  const [tab, setTab] = useState("merited");
+  const tabs = [["merited", t.anMerited], ["projection", t.anProjection], ["objectives", t.anObjectives], ["compare", t.anCompare]];
+  return (
+    <div>
+      <SectionHead title={t.nav.analysis} sub={t.season} />
+      <div className="mb-4 inline-flex flex-wrap gap-1 rounded-lg border border-neutral-200 bg-white p-1">
+        {tabs.map(([k, label]) => (
+          <button key={k} onClick={() => setTab(k)}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${tab === k ? "text-white" : "text-neutral-600 hover:text-neutral-900"}`}
+            style={tab === k ? { backgroundColor: RED } : undefined}>{label}</button>
+        ))}
+      </div>
+      {tab === "merited" && <MeritedTable t={t} onTeamClick={onTeamClick} />}
+      {tab === "projection" && <Projection t={t} onTeamClick={onTeamClick} />}
+      {tab === "objectives" && <Objectives t={t} />}
+      {tab === "compare" && <Compare t={t} />}
+    </div>
+  );
+}
+
+const anMeta = (team, slug) => {
+  const k = NAME_TO_KEY[team] || slug;
+  return T[k] ? { ...T[k], k } : { n: team, c: "#888", s: (team || "?").slice(0, 3).toUpperCase(), k: slug };
+};
+
+/* Idea 4 — Táboa merecida */
+function MeritedTable({ t, onTeamClick }) {
+  const [rows, setRows] = useState(null);
+  useEffect(() => { let a = true; (async () => { try { const r = await api.merited(); if (a) setRows(r); } catch { if (a) setRows([]); } })(); return () => { a = false; }; }, []);
+  if (!rows) return <Loading text={t.loading} />;
+  return (
+    <div>
+      <p className="mb-3 text-xs text-neutral-500">{t.anMeritedSub}</p>
+      <div className="scroll-x rounded-lg border border-neutral-200 bg-white">
+        <table className="w-full min-w-[420px] text-sm">
+          <thead className="bg-neutral-100 text-xs uppercase text-neutral-500">
+            <tr><th className="px-2 py-2.5">{t.anMeritedPos}</th><th className="px-3 py-2.5 text-left">{t.team}</th><th className="px-2 py-2.5">oPts</th><th className="px-2 py-2.5">{t.pts}</th><th className="px-2 py-2.5">{t.anRealPos}</th><th className="px-2 py-2.5">Δ</th></tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const m = anMeta(r.team, r.slug);
+              return (
+                <tr key={r.slug} onClick={() => onTeamClick && onTeamClick(m.k)} className="tap cursor-pointer border-t border-neutral-100 hover:bg-neutral-50" style={m.udo ? { backgroundColor: "#fdecec" } : undefined}>
+                  <td className="px-2 py-2 text-center font-bold tabular-nums">{r.meritedPos}</td>
+                  <td className="px-3 py-2"><div className="flex items-center gap-2"><Crest team={m} size={18} /><span className={m.udo ? "font-bold" : ""} style={m.udo ? { color: RED } : undefined}>{m.n}</span></div></td>
+                  <td className="px-2 py-2 text-center font-bold tabular-nums">{r.oPts}</td>
+                  <td className="px-2 py-2 text-center tabular-nums text-neutral-500">{r.pts}</td>
+                  <td className="px-2 py-2 text-center tabular-nums text-neutral-400">{r.realPos}º</td>
+                  <td className="px-2 py-2 text-center font-medium tabular-nums" style={{ color: r.delta > 0 ? "#1a8a4a" : r.delta < 0 ? "#c0392b" : "#9a9a9a" }}>{r.delta > 0 ? `+${r.delta}` : r.delta}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* Idea 10 — Proxección (posición media + rango) */
+function Projection({ t, onTeamClick }) {
+  const [rows, setRows] = useState(null);
+  useEffect(() => { let a = true; (async () => { try { const r = await api.probs(); if (a) setRows([...r].sort((x, y) => x.avgPos - y.avgPos)); } catch { if (a) setRows([]); } })(); return () => { a = false; }; }, []);
+  if (!rows) return <Loading text={t.loading} />;
+  return (
+    <div>
+      <p className="mb-3 text-xs text-neutral-500">{t.anProjSub}</p>
+      <div className="space-y-1.5">
+        {rows.map((r) => {
+          const m = anMeta(r.team, r.slug);
+          const lo = Math.min(r.posBest, r.posWorst), hi = Math.max(r.posBest, r.posWorst);
+          const leftPct = ((lo - 1) / 19) * 100, widthPct = ((hi - lo) / 19) * 100;
+          const avgPct = ((r.avgPos - 1) / 19) * 100;
+          return (
+            <div key={r.slug} onClick={() => onTeamClick && onTeamClick(m.k)} className="tap grid cursor-pointer grid-cols-[130px_1fr_54px] items-center gap-2 rounded px-2 py-1 hover:bg-neutral-50" style={m.udo ? { backgroundColor: "#fdecec" } : undefined}>
+              <div className="flex items-center gap-2"><Crest team={m} size={18} /><span className={`truncate text-xs ${m.udo ? "font-bold" : "text-neutral-700"}`} style={m.udo ? { color: RED } : undefined}>{m.n}</span></div>
+              <div className="relative h-5">
+                <div className="absolute top-1/2 h-2 -translate-y-1/2 rounded-full" style={{ left: `${leftPct}%`, width: `${Math.max(2, widthPct)}%`, backgroundColor: m.udo ? "#f4b8b8" : "#d4d4d4" }} />
+                <div className="absolute top-1/2 h-4 w-1 -translate-y-1/2 rounded" style={{ left: `${avgPct}%`, backgroundColor: m.udo ? RED : "#555" }} />
+              </div>
+              <span className="text-right text-xs tabular-nums text-neutral-500">{lo}º-{hi}º</span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-2 text-[10px] text-neutral-400">{t.anRange} P10-P90 · {t.anAvgPos} = liña</div>
+    </div>
+  );
+}
+
+/* Idea 12 — Que precisa a UDO */
+function Objectives({ t }) {
+  const [d, setD] = useState(null);
+  useEffect(() => { let a = true; (async () => { try { const r = await api.objectives("UD Ourense"); if (a) setD(r); } catch { if (a) setD({ err: true }); } })(); return () => { a = false; }; }, []);
+  if (!d) return <Loading text={t.loading} />;
+  if (d.err) return <div className="rounded-lg border border-neutral-200 bg-white p-8 text-center text-neutral-400">—</div>;
+  const goals = [[t.anChampion, d.champion, "#1a8a4a"], [t.anPlayoffG, d.playoff, "#e0a500"], [t.anSafety, d.safety, "#2f6fd0"]];
+  return (
+    <div>
+      <p className="mb-3 text-xs text-neutral-500">{t.anObjSub}</p>
+      <div className="mb-3 rounded-lg border border-neutral-200 bg-white p-3 text-sm">
+        <span className="font-bold" style={{ color: RED }}>UD Ourense</span> · {d.current_pts} {t.anPts} · {d.remaining} partidos por xogar
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {goals.map(([label, g, col]) => (
+          <div key={label} className="rounded-lg border border-neutral-200 bg-white p-4 text-center">
+            <div className="text-xs font-bold uppercase tracking-wide" style={{ color: col }}>{label}</div>
+            <div className="mt-2 text-3xl font-black tabular-nums">{g.need}</div>
+            <div className="text-[10px] uppercase text-neutral-400">{t.anNeed} ({t.anThreshold} ~{g.threshold})</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* Idea 14 — Comparador de dous equipos */
+function Compare({ t }) {
+  const teams = Object.entries(T).map(([k, v]) => ({ k, n: v.n })).sort((a, b) => a.n.localeCompare(b.n));
+  const [s1, setS1] = useState("ourense");
+  const [s2, setS2] = useState("ponferradina");
+  const [d1, setD1] = useState(null);
+  const [d2, setD2] = useState(null);
+  useEffect(() => { let a = true; (async () => { try { const x = await api.teamProfile(s1); if (a) setD1(x); } catch { if (a) setD1(null); } })(); return () => { a = false; }; }, [s1]);
+  useEffect(() => { let a = true; (async () => { try { const x = await api.teamProfile(s2); if (a) setD2(x); } catch { if (a) setD2(null); } })(); return () => { a = false; }; }, [s2]);
+
+  const sel = (val, setter, exclude) => (
+    <select value={val} onChange={(e) => setter(e.target.value)} className="w-full rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-sm">
+      {teams.filter((tm) => tm.k !== exclude).map((tm) => <option key={tm.k} value={tm.k}>{tm.n}</option>)}
+    </select>
+  );
+  const rowM = (label, a, b, aBetter) => (
+    <div className="grid grid-cols-3 items-center border-t border-neutral-100 py-1.5 text-sm">
+      <span className="text-left font-bold tabular-nums" style={aBetter ? { color: RED } : undefined}>{a}</span>
+      <span className="text-center text-[10px] uppercase text-neutral-400">{label}</span>
+      <span className="text-right font-bold tabular-nums" style={!aBetter ? { color: RED } : undefined}>{b}</span>
+    </div>
+  );
+  return (
+    <div>
+      <p className="mb-3 text-xs text-neutral-500">{t.anCompareSub}</p>
+      <div className="mb-3 grid grid-cols-2 gap-3">{sel(s1, setS1, s2)}{sel(s2, setS2, s1)}</div>
+      {(!d1 || !d2) ? <Loading text={t.loading} /> : (
+        <div className="rounded-lg border border-neutral-200 bg-white p-4">
+          <div className="mb-2 grid grid-cols-3 items-center">
+            <div className="flex justify-start"><Crest team={anMeta(d1.team, d1.slug)} size={40} /></div>
+            <span className="text-center text-[10px] uppercase text-neutral-400">vs</span>
+            <div className="flex justify-end"><Crest team={anMeta(d2.team, d2.slug)} size={40} /></div>
+          </div>
+          {rowM(t.pos, `${d1.pos}º`, `${d2.pos}º`, d1.pos < d2.pos)}
+          {rowM(t.pts, d1.pts, d2.pts, d1.pts > d2.pts)}
+          {rowM("oPts", d1.oPts, d2.oPts, d1.oPts > d2.oPts)}
+          {rowM("GF", d1.gf, d2.gf, d1.gf > d2.gf)}
+          {rowM("GC", d1.ga, d2.ga, d1.ga < d2.ga)}
+          {rowM(t.gd, d1.gd, d2.gd, d1.gd > d2.gd)}
+          {rowM("Elo", d1.elo, d2.elo, d1.elo > d2.elo)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* =========================================================== DASHBOARD ==== */
 function Dashboard({ t, onTeamClick }) {
   const [view, setView] = useState("table");
@@ -546,7 +761,7 @@ function Dashboard({ t, onTeamClick }) {
       ) : err ? (
         <div className="rounded-lg border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-400">{t.loadErr}</div>
       ) : view === "table" ? (
-        <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+        <div className="scroll-x rounded-lg border border-neutral-200 bg-white">
           <table className="w-full min-w-[720px] border-collapse text-sm">
             <thead className="bg-neutral-100 text-xs uppercase tracking-wide text-neutral-500">
               <tr>
@@ -567,7 +782,7 @@ function Dashboard({ t, onTeamClick }) {
                 const z = showZones ? zoneOf(i) : null;
                 const delta = +(r.opts - r.pts).toFixed(1);
                 return (
-                  <tr key={r.k} onClick={() => onTeamClick && onTeamClick(r.k)} className={`cursor-pointer border-t border-neutral-100 ${r.udo ? "" : "hover:bg-neutral-50"}`} style={r.udo ? { backgroundColor: "#fdecec" } : undefined}>
+                  <tr key={r.k} onClick={() => onTeamClick && onTeamClick(r.k)} className={`tap cursor-pointer border-t border-neutral-100 ${r.udo ? "" : "hover:bg-neutral-50"}`} style={r.udo ? { backgroundColor: "#fdecec" } : undefined}>
                     <td className="relative px-2 py-2 text-center tabular-nums text-neutral-500">
                       {z && <span className="absolute left-0 top-0 h-full w-1.5" style={{ backgroundColor: ZONE[z].bar }} />}
                       {i + 1}
