@@ -408,6 +408,22 @@ function AdminPanel({ t, onExit }) {
     } finally { setBusy(false); }
   };
 
+  const reload = async () => {
+    setMsg(""); setBusy(true);
+    try {
+      const res = await api.adminReload(token);
+      setMsg(`✓ Resultados actualizados desde a API (${res.played} partidos xogados). Recalculado.`);
+      // recargar os partidos da xornada por se cambiou
+      const md = await api.adminMatchdayOdds(token);
+      setJornada(md.jornada);
+      setRows((md.matches || []).map((m) => ({
+        ...m, c_home: m.c_home ?? "", c_draw: m.c_draw ?? "", c_away: m.c_away ?? "",
+      })));
+    } catch {
+      setMsg("✗ Erro ao actualizar resultados. Comproba a clave da API en Render.");
+    } finally { setBusy(false); }
+  };
+
   // pantalla de login
   if (!token) {
     return (
@@ -440,6 +456,10 @@ function AdminPanel({ t, onExit }) {
           <h1 className="text-lg font-black">Cuotas · Xornada {jornada}</h1>
           <button onClick={onExit} className="text-xs text-neutral-500">Saír</button>
         </div>
+        <button onClick={reload} disabled={busy}
+          className="mb-4 w-full rounded-lg border border-neutral-300 bg-white py-2.5 text-sm font-semibold text-neutral-700 hover:bg-neutral-100 disabled:opacity-50">
+          {busy ? "…" : "↻ Actualizar resultados desde a API"}
+        </button>
         <p className="mb-4 text-xs text-neutral-500">
           Mete as cuotas decimais 1-X-2 (de betexplorer). Ao gardar, actualízanse todas as
           predicións e córrense as simulacións. Deixa en branco os partidos sen cuota.
@@ -1078,9 +1098,9 @@ function Matchday({ t }) {
 
 /* =========================================================== SIMULADOR ==== */
 function Simulator({ t }) {
-  const [results, setResults] = useState({});
-  const [fixtures, setFixtures] = useState(null);   // null = cargando
-  const [jornada, setJornada] = useState(null);
+  const [results, setResults] = useState({});   // clave "jornada:idx" → "1"|"X"|"2"
+  const [days, setDays] = useState(null);        // [{jornada, fixtures:[[h,a],...]}]
+  const [activeDay, setActiveDay] = useState(0);
   const [base, setBase] = useState(null);
   const [err, setErr] = useState(false);
 
@@ -1088,22 +1108,21 @@ function Simulator({ t }) {
     let alive = true;
     (async () => {
       try {
-        const [md, st] = await Promise.all([
-          api.matchday(),
+        const [mds, st] = await Promise.all([
+          api.matchdays(3),
           api.standings(),
         ]);
         if (!alive) return;
         const b = {};
         adaptStandings(st).forEach((r) => { b[r.k] = { ...r }; });
         setBase(b);
-        if (md?.matches?.length) {
-          setJornada(md.jornada);
-          setFixtures(md.matches.map((m) => [NAME_TO_KEY[m.home] || m.home_slug, NAME_TO_KEY[m.away] || m.away_slug]));
-        } else {
-          setFixtures([]);
-        }
+        const ds = (mds?.jornadas || []).map((jd) => ({
+          jornada: jd.jornada,
+          fixtures: jd.matches.map((m) => [NAME_TO_KEY[m.home] || m.home_slug, NAME_TO_KEY[m.away] || m.away_slug]),
+        }));
+        setDays(ds);
       } catch {
-        if (alive) { setErr(true); setFixtures([]); setBase({}); }
+        if (alive) { setErr(true); setDays([]); setBase({}); }
       }
     })();
     return () => { alive = false; };
@@ -1114,28 +1133,34 @@ function Simulator({ t }) {
     [base]
   );
 
+  // tabla proxectada: aplica TODOS os resultados fixados das 3 xornadas (encadeado)
   const projected = useMemo(() => {
-    if (!base || !fixtures) return [];
+    if (!base || !days) return [];
     const map = Object.fromEntries(Object.entries(base).map(([k, v]) => [k, { ...v }]));
-    fixtures.forEach(([h, a], i) => {
-      const res = results[i];
-      if (!res || !map[h] || !map[a]) return;
-      if (res === "1") { map[h].pts += 3; map[h].gd += 1; map[a].gd -= 1; }
-      else if (res === "2") { map[a].pts += 3; map[a].gd -= 1; map[h].gd += 1; }
-      else { map[h].pts += 1; map[a].pts += 1; }
+    days.forEach((day) => {
+      day.fixtures.forEach(([h, a], i) => {
+        const res = results[`${day.jornada}:${i}`];
+        if (!res || !map[h] || !map[a]) return;
+        if (res === "1") { map[h].pts += 3; map[h].gd += 1; map[a].gd -= 1; }
+        else if (res === "2") { map[a].pts += 3; map[a].gd -= 1; map[h].gd += 1; }
+        else { map[h].pts += 1; map[a].pts += 1; }
+      });
     });
     return Object.values(map).sort((x, y) => y.pts - x.pts || y.gd - x.gd);
-  }, [results, base, fixtures]);
+  }, [results, base, days]);
 
   const zoneOf = (i) => (i === 0 ? "promo" : i <= 4 ? "po" : i >= 15 ? "rel" : null);
-  const fixedCount = Object.keys(results).length;
+  const fixedCount = Object.keys(results).filter((k) => results[k]).length;
 
-  if (fixtures === null || base === null) {
+  if (days === null || base === null) {
     return <div><SectionHead title={t.simTitle} sub={t.simSub} /><Loading text={t.loading} /></div>;
   }
-  if (err) {
-    return <div><SectionHead title={t.simTitle} sub={t.simSub} /><div className="rounded-lg border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-400">{t.loadErr}</div></div>;
+  if (err || days.length === 0) {
+    return <div><SectionHead title={t.simTitle} sub={t.simSub} /><div className="rounded-lg border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-400">{err ? t.loadErr : t.mdNoData}</div></div>;
   }
+
+  const day = days[activeDay] || days[0];
+  const fixtures = day.fixtures;
 
   return (
     <div>
@@ -1143,28 +1168,42 @@ function Simulator({ t }) {
         <button onClick={() => setResults({})} className="rounded px-3 py-1 text-xs font-semibold text-neutral-500 hover:bg-neutral-200">↺ {t.reset}</button>
       )} />
 
+      {/* pestanas de xornadas */}
+      <div className="mb-4 inline-flex gap-1 rounded-lg border border-neutral-200 bg-white p-1">
+        {days.map((d, i) => {
+          const fixedInDay = d.fixtures.filter((_, idx) => results[`${d.jornada}:${idx}`]).length;
+          return (
+            <button key={d.jornada} onClick={() => setActiveDay(i)}
+              className={`tap rounded-md px-3 py-1.5 text-sm font-medium transition ${activeDay === i ? "text-white" : "text-neutral-600 hover:bg-neutral-100"}`}
+              style={activeDay === i ? { backgroundColor: RED } : undefined}>
+              {t.jornada} {d.jornada}{fixedInDay > 0 ? ` ·${fixedInDay}` : ""}
+            </button>
+          );
+        })}
+      </div>
+
       <section className="mb-5 rounded-lg border border-neutral-200 bg-white p-4">
-        <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-500">{t.jornada} {jornada}</h3>
         <div className="grid gap-2 sm:grid-cols-2">
           {fixtures.map(([h, a], i) => {
             const th = T[h] ? { ...T[h], k: h } : { n: h, c: "#888", s: "?", k: h };
             const ta = T[a] ? { ...T[a], k: a } : { n: a, c: "#888", s: "?", k: a };
+            const rkey = `${day.jornada}:${i}`;
             return (
-            <div key={i} className="flex items-center justify-between gap-2 rounded-md border border-neutral-100 px-3 py-2">
-              <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5">
-                <span className={`truncate text-xs ${th.udo ? "font-bold" : "text-neutral-700"}`} style={th.udo ? { color: RED } : undefined}>{th.n}</span>
-                <Crest team={th} size={18} />
+            <div key={i} className="flex items-center justify-between gap-1.5 rounded-md border border-neutral-100 px-2 py-2">
+              <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
+                <span className={`truncate text-[11px] sm:text-xs ${th.udo ? "font-bold" : "text-neutral-700"}`} style={th.udo ? { color: RED } : undefined}>{th.n}</span>
+                <Crest team={th} size={22} />
               </div>
-              <div className="flex shrink-0 gap-1">
+              <div className="flex shrink-0 gap-0.5">
                 {["1", "X", "2"].map((v) => (
-                  <button key={v} onClick={() => setResults((p) => ({ ...p, [i]: p[i] === v ? undefined : v }))}
-                    className={`h-7 w-8 rounded text-xs font-bold transition ${results[i] === v ? "text-white" : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"}`}
-                    style={results[i] === v ? { backgroundColor: RED } : undefined}>{v}</button>
+                  <button key={v} onClick={() => setResults((p) => ({ ...p, [rkey]: p[rkey] === v ? undefined : v }))}
+                    className={`tap h-7 w-7 rounded text-xs font-bold transition ${results[rkey] === v ? "text-white" : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"}`}
+                    style={results[rkey] === v ? { backgroundColor: RED } : undefined}>{v}</button>
                 ))}
               </div>
-              <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                <Crest team={ta} size={18} />
-                <span className={`truncate text-xs ${ta.udo ? "font-bold" : "text-neutral-700"}`} style={ta.udo ? { color: RED } : undefined}>{ta.n}</span>
+              <div className="flex min-w-0 flex-1 items-center gap-1">
+                <Crest team={ta} size={22} />
+                <span className={`truncate text-[11px] sm:text-xs ${ta.udo ? "font-bold" : "text-neutral-700"}`} style={ta.udo ? { color: RED } : undefined}>{ta.n}</span>
               </div>
             </div>
           ); })}
