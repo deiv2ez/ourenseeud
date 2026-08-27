@@ -28,7 +28,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from .store import load, NAMES, SLUG_BY_NAME, match_key
+from .store import load as _store_load, NAMES, SLUG_BY_NAME, match_key
 from .models.montecarlo import SeasonModel
 from .auth import verify_login, make_token, decode_token
 from fastapi import Depends
@@ -49,9 +49,32 @@ app.add_middleware(
 
 
 # ------------------------------------------------------------- utilidades ----
+def load() -> dict:
+    """
+    Carga os datos de tempada e INXECTA as cuotas persistidas en Supabase (se hai)
+    nos partidos de 'remaining'. Así as cuotas sobreviven aos reinicios de Render.
+    Se Supabase non está activo, devolve os datos tal cal (coas cuotas do JSON local,
+    se as houber). Calquera fallo de Supabase é silencioso: seguimos sen cuotas.
+    """
+    data = _store_load()
+    try:
+        from . import odds_store
+        remote = odds_store.load_odds()
+        if remote:
+            for m in data.get("remaining", []):
+                key = (m["home"], m["away"])
+                if key in remote:
+                    m["odds"] = remote[key]
+    except Exception:
+        pass
+    return data
+
+
 def _data_hash(data: dict) -> str:
-    """Huella de los datos de temporada para invalidar la caché al cambiar."""
-    raw = json.dumps({"p": data["played"], "r": data["remaining"]}, sort_keys=True)
+    """Huella de los datos de temporada para invalidar la caché al cambiar.
+    Inclúe as cuotas: se cambian, o Monte Carlo e as features recalcúlanse."""
+    odds = {f'{m["home"]}|{m["away"]}': m.get("odds") for m in data.get("remaining", [])}
+    raw = json.dumps({"p": data["played"], "r": data["remaining"], "o": odds}, sort_keys=True)
     return hashlib.md5(raw.encode()).hexdigest()
 
 
@@ -357,7 +380,7 @@ def current_matchday():
     for m in data["remaining"]:
         if m["jornada"] != j:
             continue
-        p = model.match_probs(m["home"], m["away"])
+        p = model.match_probs(m["home"], m["away"], odds=m.get("odds"))
         matches.append({
             "home": m["home"], "home_slug": SLUG_BY_NAME[m["home"]],
             "away": m["away"], "away_slug": SLUG_BY_NAME[m["away"]],
@@ -394,7 +417,7 @@ def team_evolution(slug: str):
         is_home = m["home"] == name
         gf, ga = (m["hg"], m["ag"]) if is_home else (m["ag"], m["hg"])
         pts_cum += 3 if gf > ga else 1 if gf == ga else 0
-        p = model.match_probs(m["home"], m["away"])
+        p = model.match_probs(m["home"], m["away"], odds=m.get("odds"))
         opts_cum += (3 * p["home_win"] + p["draw"]) if is_home else (3 * p["away_win"] + p["draw"])
         points.append({
             "jornada": m["jornada"],
@@ -427,7 +450,7 @@ def team_profile(slug: str):
     for m in sorted(data["played"], key=lambda x: x["jornada"]):
         if name not in (m["home"], m["away"]):
             continue
-        p = model.match_probs(m["home"], m["away"])
+        p = model.match_probs(m["home"], m["away"], odds=m.get("odds"))
         is_home = m["home"] == name
         opts += (3 * p["home_win"] + p["draw"]) if is_home else (3 * p["away_win"] + p["draw"])
 
@@ -624,6 +647,80 @@ def admin_reload(user: dict = Depends(require_admin)):
     _cached_sim.cache_clear()
     return {"ok": True, "by": user["username"],
             "standings": len(result["standings"]), "played": len(result["played"])}
+
+
+class OddsEntry(BaseModel):
+    home: str          # nome do equipo local (como no calendario)
+    away: str          # nome do equipo visitante
+    c_home: float      # cuota decimal 1
+    c_draw: float      # cuota decimal X
+    c_away: float      # cuota decimal 2
+
+
+class OddsUpload(BaseModel):
+    jornada: int
+    entries: list[OddsEntry]
+
+
+@app.get("/api/admin/matchday-odds")
+def admin_get_matchday_odds(user: dict = Depends(require_admin)):
+    """Devuelve os partidos da próxima xornada pendente e as súas cuotas actuais
+    (se as houber), para que o admin as edite. Só admin."""
+    data = load()
+    if not data["remaining"]:
+        return {"jornada": None, "matches": []}
+    j = min(m["jornada"] for m in data["remaining"])
+    matches = []
+    for m in data["remaining"]:
+        if m["jornada"] != j:
+            continue
+        od = m.get("odds") or {}
+        matches.append({
+            "home": m["home"], "away": m["away"],
+            "home_slug": SLUG_BY_NAME[m["home"]], "away_slug": SLUG_BY_NAME[m["away"]],
+            "c_home": od.get("home"), "c_draw": od.get("draw"), "c_away": od.get("away"),
+        })
+    return {"jornada": j, "matches": matches}
+
+
+@app.post("/api/admin/odds")
+def admin_set_odds(payload: OddsUpload, user: dict = Depends(require_admin)):
+    """
+    Garda as cuotas 1X2 dunha xornada e RECALCULA todo (limpa a caché de simulacións).
+    As predicións pasarán a usar o blend 70/30. Só admin.
+
+    Persistencia: se Supabase está configurado (variables SUPABASE_URL/KEY en Render),
+    gárdanse alí (persistente). Se non, no JSON local (efímero en Render free).
+    """
+    from .store import save
+    from . import odds_store
+    entries = [{"home": e.home, "away": e.away,
+                "c_home": e.c_home, "c_draw": e.c_draw, "c_away": e.c_away}
+               for e in payload.entries
+               if e.c_home >= 1 and e.c_draw >= 1 and e.c_away >= 1]
+
+    # 1) persistencia en Supabase (se está activo)
+    saved_remote = 0
+    try:
+        saved_remote = odds_store.save_odds(payload.jornada, entries)
+    except Exception as exc:
+        raise HTTPException(502, f"Erro gardando en Supabase: {exc}")
+
+    # 2) tamén no JSON local (para que funcione xa nesta sesión aínda sen Supabase)
+    data = load()
+    idx = {(m["home"], m["away"]): m for m in data["remaining"]
+           if m["jornada"] == payload.jornada}
+    updated = 0
+    for e in entries:
+        m = idx.get((e["home"], e["away"]))
+        if m:
+            m["odds"] = {"home": e["c_home"], "draw": e["c_draw"], "away": e["c_away"]}
+            updated += 1
+    save(data)
+    _cached_sim.cache_clear()   # forza recálculo de simulacións e features
+    return {"ok": True, "by": user["username"], "jornada": payload.jornada,
+            "updated": updated, "persisted": saved_remote,
+            "storage": "supabase" if odds_store.enabled() else "local"}
 
 
 @app.on_event("startup")
