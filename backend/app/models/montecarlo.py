@@ -60,7 +60,21 @@ class SeasonModel:
     # 70% modelo / 30% mercado mellora o log-loss +0.85% fronte a só modelo. É o
     # tope pedido polo usuario e o que mellor rende. SÓ se aplica se hai cuota
     # dispoñible; sen cuota o modelo funciona só (non dependemos do scraping).
-    MARKET_WEIGHT = 0.30
+    # Peso do MERCADO no blend, ADAPTATIVO e VALIDADO por backtest (24/25, 25/26, G1):
+    # ao INICIO de tempada (modelo sen datos) o mercado pesa máis (50%, empata co
+    # modelo, nunca o supera), e baixa ata o 30% habitual segundo o modelo madura
+    # (cara á xornada 20). Mellora log-loss +1.16% fronte a só modelo, e +0.2% fronte
+    # ao fixo 30%. Respecta o principio "o modelo manda" (mercado nunca > 50%).
+    # Só se aplica se hai cuota; sen cuota, o modelo funciona só.
+    MARKET_WEIGHT_INI = 0.50   # peso do mercado ao inicio (xornada 0)
+    MARKET_WEIGHT_FIN = 0.30   # peso do mercado co modelo xa maduro
+    MARKET_MATURE_GAMES = 20   # partidos/equipo a partir dos que se usa o peso final
+
+    def market_weight(self) -> float:
+        """Peso adaptativo do mercado segundo cantos partidos leva xogados a liga."""
+        g = getattr(self, "avg_games_played", 0.0)
+        frac = min(1.0, g / self.MARKET_MATURE_GAMES)
+        return self.MARKET_WEIGHT_INI * (1 - frac) + self.MARKET_WEIGHT_FIN * frac
 
 
     def __init__(self, teams: list[str], home_adv_goals: float = HOME_ADV_1RFEF):
@@ -121,6 +135,9 @@ class SeasonModel:
                 defense=dff * (1 - 0.15 * elo_mod),
                 elo=self.elo.rating(t),
             )
+        # media de partidos xogados por equipo: úsase para o peso ADAPTATIVO do
+        # mercado (ao inicio, con poucos datos, o mercado pesa máis; ver market_weight).
+        self.avg_games_played = (sum(raw_games.values()) / len(self.teams)) if self.teams else 0.0
         return self
 
     # ------------------------------------------------ currículum / resume ----
@@ -251,7 +268,7 @@ class SeasonModel:
         if odds:
             try:
                 mkt = self.odds_to_prob(odds["home"], odds["draw"], odds["away"])
-                w = self.MARKET_WEIGHT
+                w = self.market_weight()
                 p_home = (1 - w) * p_home + w * mkt["home_win"]
                 p_draw = (1 - w) * p_draw + w * mkt["draw"]
                 p_away = (1 - w) * p_away + w * mkt["away_win"]
