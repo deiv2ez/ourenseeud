@@ -40,3 +40,7 @@ api.resume = () => get("/api/resume");
 
 // Ficha de equipo
 api.teamProfile = (slug) => get(`/api/team/${slug}`);
+
+// Analíticas: tabla merecida, objetivos
+api.merited = () => get("/api/merited");
+api.objectives = (team) => get(`/api/objectives?team=${encodeURIComponent(team)}`);
