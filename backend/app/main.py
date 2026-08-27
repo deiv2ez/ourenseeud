@@ -286,8 +286,10 @@ def next_match(team: str = "UD Ourense", blend: float = Query(0.5, ge=0, le=1)):
         return {"team": team, "next": None}
     m = upcoming[0]
     model = _fit_model(data)
-    odds = data["odds"].get(match_key(m["home"], m["away"]))
-    xr = model.expected_result(m["home"], m["away"], odds=odds, blend=blend)
+    # MESMO cálculo que a sección Xornada (/api/matchday): match_probs coas cuotas
+    # do partido. Así a previa da UD Ourense e a de Xornada son IDÉNTICAS.
+    odds = m.get("odds")
+    p = model.match_probs(m["home"], m["away"], odds=odds)
     return {
         "team": team,
         "next": {
@@ -295,7 +297,13 @@ def next_match(team: str = "UD Ourense", blend: float = Query(0.5, ge=0, le=1)):
             "home": m["home"], "home_slug": SLUG_BY_NAME[m["home"]],
             "away": m["away"], "away_slug": SLUG_BY_NAME[m["away"]],
             "odds": odds,
-            "expected": xr,
+            # mesmos campos que matchday, para que o frontend os use igual
+            "likely_score": p["likely_score"],
+            "oGoals_home": p["oGoals_home"], "oGoals_away": p["oGoals_away"],
+            "p_home": round(p["home_win"] * 100),
+            "p_draw": round(p["draw"] * 100),
+            "p_away": round(p["away_win"] * 100),
+            "expected": p,   # compat: mantense o obxecto completo por se acaso
         },
     }
 
@@ -394,6 +402,38 @@ def current_matchday():
             "p_away": round(p["away_win"] * 100),         # 2
         })
     return {"jornada": j, "matches": matches}
+
+
+@app.get("/api/matchdays")
+def next_matchdays(count: int = Query(3, ge=1, le=5)):
+    """
+    Devolve as próximas `count` xornadas pendentes (para o simulador multi-xornada).
+    Cada xornada cos seus partidos e predicións (mesmo formato que /api/matchday).
+    """
+    data = load()
+    if not data["remaining"]:
+        return {"jornadas": []}
+    model = _fit_model(data)
+    js = sorted({m["jornada"] for m in data["remaining"]})[:count]
+    out = []
+    for j in js:
+        matches = []
+        for m in data["remaining"]:
+            if m["jornada"] != j:
+                continue
+            p = model.match_probs(m["home"], m["away"], odds=m.get("odds"))
+            matches.append({
+                "home": m["home"], "home_slug": SLUG_BY_NAME[m["home"]],
+                "away": m["away"], "away_slug": SLUG_BY_NAME[m["away"]],
+                "date": m.get("date"),
+                "likely_score": p["likely_score"],
+                "oGoals_home": p["oGoals_home"], "oGoals_away": p["oGoals_away"],
+                "p_home": round(p["home_win"] * 100),
+                "p_draw": round(p["draw"] * 100),
+                "p_away": round(p["away_win"] * 100),
+            })
+        out.append({"jornada": j, "matches": matches})
+    return {"jornadas": out}
 
 
 @app.get("/api/team/{slug}/evolution")
