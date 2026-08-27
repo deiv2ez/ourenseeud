@@ -259,17 +259,39 @@ class SeasonModel:
             except (KeyError, TypeError, ZeroDivisionError):
                 pass  # cuota inválida → quedamos co modelo só
 
-        # marcador más probable de la rejilla (do modelo, non do mercado)
-        i, j = np.unravel_index(np.argmax(grid), grid.shape)
+        # marcador esperado: redondeo ASIMÉTRICO validado por backtest (3800 partidos).
+        # Redondea os oGoals con umbral 0.9, pero se saíse un empate e hai favorito
+        # claro (diferenza de lambda >= 0.30), dá o gol da vitoria ao favorito.
+        # Isto acerta máis o resultado 1X2 (44.6%) SEN inflar empates (31% pred vs 29%
+        # real), en vez do pico da rexilla que daba demasiados 1-1. Ver backtest_redondeo.
+        likely = self._expected_score(lam_h, lam_a)
         return {
             "home_win": round(p_home, 4),
             "draw": round(p_draw, 4),
             "away_win": round(p_away, 4),
             "oGoals_home": round(float(lam_h), 2),
             "oGoals_away": round(float(lam_a), 2),
-            "likely_score": [int(i), int(j)],
+            "likely_score": likely,
             "source": source,
         }
+
+    @staticmethod
+    def _expected_score(lam_h: float, lam_a: float,
+                        base: float = 0.9, gap: float = 0.30) -> list[int]:
+        """
+        Marcador esperado por redondeo asimétrico (óptimo por backtest):
+          · redondea cada lambda con punto de corte `base` (0.9): floor(l + 1 - base).
+          · se o resultado é empate PERO hai favorito claro (|Δλ| >= gap), engade
+            o gol da vitoria ao favorito, evitando o 1-1 aguado.
+        """
+        h = int(np.floor(lam_h + (1.0 - base)))
+        a = int(np.floor(lam_a + (1.0 - base)))
+        if h == a and abs(lam_h - lam_a) >= gap:
+            if lam_h > lam_a:
+                h += 1
+            else:
+                a += 1
+        return [h, a]
 
     # ---------------------------------------------------- blend con cuotas ----
     @staticmethod
