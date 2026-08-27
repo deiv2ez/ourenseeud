@@ -248,7 +248,18 @@ export default function App() {
   const [lang, setLang] = useState("gl");
   const [section, setSection] = useState("dashboard");
   const [teamSlug, setTeamSlug] = useState(null); // ficha de equipo aberta
+  const [isAdmin, setIsAdmin] = useState(() => typeof window !== "undefined" && window.location.hash === "#admin");
   const t = I18N[lang];
+
+  useEffect(() => {
+    const onHash = () => setIsAdmin(window.location.hash === "#admin");
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  // Páxina de admin OCULTA: só accesible engadindo #admin á URL. Non hai enlace
+  // visible na web. Protexida por login (usuario/contrasinal do backend).
+  if (isAdmin) return <AdminPanel t={t} onExit={() => { window.location.hash = ""; setIsAdmin(false); }} />;
 
   const nav = [
     ["dashboard", t.nav.dashboard, "▦"],
@@ -348,6 +359,112 @@ export default function App() {
           );
         })}
       </nav>
+    </div>
+  );
+}
+
+/* ============================================================ ADMIN ======= *
+ * Páxina oculta (#admin) para meter as cuotas da xornada. Protexida por login.
+ * Tras gardar, o backend recalcula todo (simulacións incluídas).                */
+function AdminPanel({ t, onExit }) {
+  const [token, setToken] = useState(null);
+  const [user, setUser] = useState("");
+  const [pass, setPass] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [jornada, setJornada] = useState(null);
+  const [rows, setRows] = useState([]);
+  const [msg, setMsg] = useState("");
+
+  const doLogin = async () => {
+    setErr(""); setBusy(true);
+    try {
+      const r = await api.login(user.trim(), pass);
+      setToken(r.token);
+      const md = await api.adminMatchdayOdds(r.token);
+      setJornada(md.jornada);
+      setRows((md.matches || []).map((m) => ({
+        ...m,
+        c_home: m.c_home ?? "", c_draw: m.c_draw ?? "", c_away: m.c_away ?? "",
+      })));
+    } catch {
+      setErr("Usuario ou contrasinal incorrectos.");
+    } finally { setBusy(false); }
+  };
+
+  const setCell = (i, k, v) => setRows((rs) => rs.map((r, j) => j === i ? { ...r, [k]: v } : r));
+
+  const save = async () => {
+    setMsg(""); setBusy(true);
+    try {
+      const entries = rows
+        .filter((r) => r.c_home && r.c_draw && r.c_away)
+        .map((r) => ({ home: r.home, away: r.away,
+          c_home: parseFloat(r.c_home), c_draw: parseFloat(r.c_draw), c_away: parseFloat(r.c_away) }));
+      const res = await api.adminSetOdds(token, jornada, entries);
+      setMsg(`✓ Gardadas ${res.updated} cuotas da xornada ${jornada}. Recalculando todo…`);
+    } catch {
+      setMsg("✗ Erro ao gardar. Comproba a sesión.");
+    } finally { setBusy(false); }
+  };
+
+  // pantalla de login
+  if (!token) {
+    return (
+      <div className="app-shell flex items-center justify-center bg-neutral-900 px-4">
+        <div className="w-full max-w-xs rounded-xl bg-white p-6 shadow-xl">
+          <div className="mb-4 flex items-center gap-2">
+            <BrandCrest size={36} />
+            <span className="text-sm font-black">Admin · Ourense é UD</span>
+          </div>
+          <input value={user} onChange={(e) => setUser(e.target.value)} placeholder="Usuario" autoComplete="off"
+            className="mb-2 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm" />
+          <input value={pass} onChange={(e) => setPass(e.target.value)} placeholder="Contrasinal" type="password"
+            onKeyDown={(e) => e.key === "Enter" && doLogin()}
+            className="mb-3 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm" />
+          {err && <p className="mb-2 text-xs text-red-600">{err}</p>}
+          <button onClick={doLogin} disabled={busy}
+            className="w-full rounded-md py-2 text-sm font-semibold text-white disabled:opacity-50"
+            style={{ backgroundColor: RED }}>{busy ? "…" : "Entrar"}</button>
+          <button onClick={onExit} className="mt-2 w-full text-center text-xs text-neutral-400">Voltar á web</button>
+        </div>
+      </div>
+    );
+  }
+
+  // panel de cuotas
+  return (
+    <div className="app-shell bg-neutral-50">
+      <div className="mx-auto max-w-2xl px-4 py-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h1 className="text-lg font-black">Cuotas · Xornada {jornada}</h1>
+          <button onClick={onExit} className="text-xs text-neutral-500">Saír</button>
+        </div>
+        <p className="mb-4 text-xs text-neutral-500">
+          Mete as cuotas decimais 1-X-2 (de betexplorer). Ao gardar, actualízanse todas as
+          predicións e córrense as simulacións. Deixa en branco os partidos sen cuota.
+        </p>
+        <div className="space-y-2">
+          {rows.map((r, i) => (
+            <div key={i} className="rounded-lg border border-neutral-200 bg-white p-3">
+              <div className="mb-2 text-sm font-semibold">{r.home} <span className="text-neutral-400">vs</span> {r.away}</div>
+              <div className="grid grid-cols-3 gap-2">
+                {[["c_home", "1"], ["c_draw", "X"], ["c_away", "2"]].map(([k, label]) => (
+                  <div key={k}>
+                    <label className="block text-[10px] uppercase text-neutral-400">{label}</label>
+                    <input inputMode="decimal" value={r[k]} onChange={(e) => setCell(i, k, e.target.value)}
+                      placeholder="—" className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm tabular-nums" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        {msg && <p className="mt-3 text-sm font-medium" style={{ color: msg.startsWith("✓") ? "#1a8a4a" : "#c0392b" }}>{msg}</p>}
+        <button onClick={save} disabled={busy}
+          className="mt-4 w-full rounded-lg py-3 text-sm font-bold text-white disabled:opacity-50"
+          style={{ backgroundColor: RED }}>{busy ? "Gardando…" : "Gardar e recalcular"}</button>
+      </div>
     </div>
   );
 }
