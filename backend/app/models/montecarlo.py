@@ -56,6 +56,11 @@ class SeasonModel:
     # con 5 anos de datos reais.
     LEAGUE_AVG_GOALS_1RFEF = 1.155   # goles por equipo e partido (2.31 / 2), real 5 temp.
     HOME_ADV_1RFEF = 0.40            # ventaxa de campo, ÓPTIMA por backtest (5 temp.)
+    # Peso do MERCADO no blend, VALIDADO por backtest (temp 24/25 e 25/26, G1):
+    # 70% modelo / 30% mercado mellora o log-loss +0.85% fronte a só modelo. É o
+    # tope pedido polo usuario e o que mellor rende. SÓ se aplica se hai cuota
+    # dispoñible; sen cuota o modelo funciona só (non dependemos do scraping).
+    MARKET_WEIGHT = 0.30
 
 
     def __init__(self, teams: list[str], home_adv_goals: float = HOME_ADV_1RFEF):
@@ -223,27 +228,47 @@ class SeasonModel:
         lam_away = avg * a.attack * h.defense - half
         return max(0.15, lam_home), max(0.15, lam_away)
 
-    def match_probs(self, home: str, away: str, max_goals: int = 10) -> dict:
+    def match_probs(self, home: str, away: str, max_goals: int = 10,
+                    odds: dict | None = None) -> dict:
         """
-        Probabilidades 1-X-2 y oGoals de un partido según el modelo (sin cuotas).
+        Probabilidades 1-X-2 y oGoals de un partido según el modelo.
         Convoluciona dos Poisson independientes sobre una rejilla de resultados.
+
+        Si se pasan `odds` (cuotas decimais {home,draw,away}), MÉSTURASE o modelo
+        co mercado: 70% modelo / 30% mercado (MARKET_WEIGHT), tras quitar o overround.
+        Validado por backtest: mellora a predición. Sen odds, só modelo.
         """
         lam_h, lam_a = self._lambdas(home, away)
         gh = _poisson_pmf(lam_h, max_goals)
         ga = _poisson_pmf(lam_a, max_goals)
         grid = np.outer(gh, ga)
-        p_home = np.tril(grid, -1).sum()
-        p_draw = np.trace(grid)
-        p_away = np.triu(grid, 1).sum()
-        # marcador más probable de la rejilla
+        p_home = float(np.tril(grid, -1).sum())
+        p_draw = float(np.trace(grid))
+        p_away = float(np.triu(grid, 1).sum())
+        source = "model"
+
+        # blend co mercado se hai cuota
+        if odds:
+            try:
+                mkt = self.odds_to_prob(odds["home"], odds["draw"], odds["away"])
+                w = self.MARKET_WEIGHT
+                p_home = (1 - w) * p_home + w * mkt["home_win"]
+                p_draw = (1 - w) * p_draw + w * mkt["draw"]
+                p_away = (1 - w) * p_away + w * mkt["away_win"]
+                source = f"blend({int(w*100)}% mercado)"
+            except (KeyError, TypeError, ZeroDivisionError):
+                pass  # cuota inválida → quedamos co modelo só
+
+        # marcador más probable de la rejilla (do modelo, non do mercado)
         i, j = np.unravel_index(np.argmax(grid), grid.shape)
         return {
-            "home_win": round(float(p_home), 4),
-            "draw": round(float(p_draw), 4),
-            "away_win": round(float(p_away), 4),
+            "home_win": round(p_home, 4),
+            "draw": round(p_draw, 4),
+            "away_win": round(p_away, 4),
             "oGoals_home": round(float(lam_h), 2),
             "oGoals_away": round(float(lam_a), 2),
             "likely_score": [int(i), int(j)],
+            "source": source,
         }
 
     # ---------------------------------------------------- blend con cuotas ----
