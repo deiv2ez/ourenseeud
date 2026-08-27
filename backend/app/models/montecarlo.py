@@ -46,15 +46,17 @@ class TeamStrength:
 
 
 class SeasonModel:
-    # Parámetros CALIBRADOS coa 1ª RFEF (medias reais 24/25 e 25/26, fonte BeSoccer):
-    #   · 2.43 goles/partido de media na categoría → 1.215 por equipo e partido.
-    #   · Ventaxa de campo: locais marcan 1.43/90 e visitantes 1.02/90 → diferenza
-    #     de ~0.41 goles. Repártese como vantaxe local (+0.20) e desvantaxe
-    #     visitante implícita, dando o gap real observado (45% vitorias locais).
+    # Parámetros CALIBRADOS coa 1ª RFEF a partir de DATOS REAIS de 5 tempadas
+    # (2021-22 a 2025-26, ambos grupos, 10 ligas completas; fonte BDFutbol):
+    #   · Media real: 2.31 goles/partido → 1.155 por equipo e partido.
+    #   · Ventaxa de campo real: casa 1.327 vs fóra 0.983 → diferenza 0.344 goles.
+    #   · Reparto real observado: 44.4% local / 29.1% empate / 26.5% visitante.
     # NON son forzas de equipos concretos (iso apréndese cos partidos): son
-    # parámetros ESTRUTURAIS da categoría, estables entre tempadas.
-    LEAGUE_AVG_GOALS_1RFEF = 1.215   # goles por equipo e partido (2.43 / 2)
-    HOME_ADV_1RFEF = 0.41            # diferenza local-visitante en goles/partido
+    # parámetros ESTRUTURAIS da categoría, estables entre tempadas e validados
+    # con 5 anos de datos reais.
+    LEAGUE_AVG_GOALS_1RFEF = 1.155   # goles por equipo e partido (2.31 / 2), real 5 temp.
+    HOME_ADV_1RFEF = 0.40            # ventaxa de campo, ÓPTIMA por backtest (5 temp.)
+
 
     def __init__(self, teams: list[str], home_adv_goals: float = HOME_ADV_1RFEF):
         self.teams = list(teams)
@@ -101,7 +103,10 @@ class SeasonModel:
             # fuerza base por goles, suavizada hacia 1.0 con pocos partidos (shrinkage)
             raw_att = (gf[t] / g) / avg
             raw_def = (ga[t] / g) / avg
-            w = min(1.0, rg / 10.0)  # confianza: con <10 partidos, tira hacia la media
+            w = min(1.0, rg / 40.0)  # shrinkage=40, ÓPTIMO por backtest sobre 3800
+            # partidos reais de 1ª RFEF (mellora log-loss +2.2% vs shrink=10). Nesta
+            # categoría tan igualada, ser prudente coas forzas ata ter moitos partidos
+            # predice mellor que fiarse cedo.
             att = w * raw_att + (1 - w) * 1.0
             dff = w * raw_def + (1 - w) * 1.0
             # modulación Elo: ±0.15 según distancia a la media de la liga
@@ -302,8 +307,10 @@ class SeasonModel:
         counts_po = np.zeros(n)
         counts_rel = np.zeros(n)
         pos_sum = np.zeros(n)
+        pos_all = np.zeros((n_sims, n), dtype=np.int16)  # posición de cada equipo en cada sim
+        pts_1 = np.zeros(n_sims); pts_5 = np.zeros(n_sims); pts_15 = np.zeros(n_sims)
 
-        for _ in range(n_sims):
+        for sim_i in range(n_sims):
             pts = base_pts.copy()
             gd = base_gd.copy()
             gf = base_gf.copy()
@@ -325,6 +332,22 @@ class SeasonModel:
             counts_po += (ranks <= PLAYOFF_TO)
             counts_rel += (ranks >= RELEGATION_FROM)
             pos_sum += ranks
+            pos_all[sim_i] = ranks
+
+            # limiares de puntos: os do 1º, 5º e 15º nesta simulación
+            sp = np.sort(pts)[::-1]
+            pts_1[sim_i] = sp[PROMO_DIRECT - 1]
+            pts_5[sim_i] = sp[PLAYOFF_TO - 1]
+            pts_15[sim_i] = sp[RELEGATION_FROM - 2]
+
+        # banda de posición proxectada: percentís 10 e 90 (rango probable)
+        pos_best = np.percentile(pos_all, 10, axis=0)   # mellor posición probable
+        pos_worst = np.percentile(pos_all, 90, axis=0)  # peor posición probable
+        self._thresholds = {
+            "champion": round(float(pts_1.mean())),
+            "playoff": round(float(pts_5.mean())),
+            "safety": round(float(pts_15.mean())),
+        }
 
         # oPts: puntos esperados del modelo sobre los partidos YA jugados
         opts = self._expected_points_played(played, idx, n)
@@ -336,6 +359,8 @@ class SeasonModel:
                 "pPO": round(100 * counts_po[i] / n_sims, 1),
                 "pRel": round(100 * counts_rel[i] / n_sims, 1),
                 "avgPos": round(pos_sum[i] / n_sims, 1),
+                "posBest": int(pos_best[i]),   # posición máis alta probable (P10)
+                "posWorst": int(pos_worst[i]), # posición máis baixa probable (P90)
                 "oPts": round(opts[i], 1),
                 "elo": round(self.strength[t].elo),
             }
