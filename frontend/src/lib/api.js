@@ -44,3 +44,22 @@ api.teamProfile = (slug) => get(`/api/team/${slug}`);
 // Analíticas: tabla merecida, objetivos
 api.merited = () => get("/api/merited");
 api.objectives = (team) => get(`/api/objectives?team=${encodeURIComponent(team)}`);
+
+// --- Admin (login + cuotas) ---
+api.login = (username, password) =>
+  fetch(`${BASE}/api/login`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  }).then((r) => { if (!r.ok) throw new Error("login"); return r.json(); });
+
+api.adminMatchdayOdds = (token) =>
+  fetch(`${BASE}/api/admin/matchday-odds`, {
+    headers: { Authorization: `Bearer ${token}` },
+  }).then((r) => { if (!r.ok) throw new Error("auth"); return r.json(); });
+
+api.adminSetOdds = (token, jornada, entries) =>
+  fetch(`${BASE}/api/admin/odds`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ jornada, entries }),
+  }).then((r) => { if (!r.ok) throw new Error("save"); return r.json(); });
