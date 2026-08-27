@@ -186,6 +186,72 @@ def get_probs(n_sims: int = Query(10000, ge=1000, le=50000)):
     return [{"team": t, "slug": SLUG_BY_NAME[t], **v} for t, v in res.items()]
 
 
+@app.get("/api/merited")
+def merited_table(n_sims: int = Query(10000, ge=1000, le=50000)):
+    """
+    Idea 4 — Táboa MERECIDA: clasificación ordenada por oPts (puntos merecidos
+    polo modelo) en vez dos puntos reais. Amosa a posición real e a merecida,
+    e canto sobe/baixa cada equipo se contase o merecido.
+    """
+    data = load()
+    res = json.loads(_cached_sim(_data_hash(data), n_sims))
+    table = _standings(data)
+    real_pos = {r["team"]: i + 1 for i, r in enumerate(table)}
+    real_pts = {r["team"]: r["pts"] for r in table}
+    rows = [{"team": t, "slug": SLUG_BY_NAME[t],
+             "pts": real_pts[t], "oPts": v["oPts"],
+             "realPos": real_pos[t]} for t, v in res.items()]
+    rows.sort(key=lambda r: -r["oPts"])
+    for i, r in enumerate(rows):
+        r["meritedPos"] = i + 1
+        r["delta"] = r["realPos"] - r["meritedPos"]  # +sube na merecida, -baixa
+    return rows
+
+
+@app.get("/api/objectives")
+def objectives(team: str = "UD Ourense", n_sims: int = Query(10000, ge=1000, le=50000)):
+    """
+    Idea 12 — Que necesita a UDO?: limiares de puntos estimados (media das sims)
+    para campión, playoff e permanencia, e cantos puntos lle faltan ao equipo
+    dado desde os que xa ten.
+    """
+    if team not in NAMES:
+        raise HTTPException(404, f"Equipo desconocido: {team}")
+    data = load()
+    # aseguramos simulación feita (enche self._thresholds) e collémolos
+    model = _fit_model(data)
+    sim = model.simulate(data["played"], data["remaining"], n_sims=n_sims)
+    sim_thr = getattr(model, "_thresholds", {"champion": 0, "playoff": 0, "safety": 0})
+    # Limiares REAIS históricos (media 5 tempadas 1ª RFEF, fonte BDFutbol):
+    #   campión 73, playoff (5º) 60, permanencia (15º) 45.
+    # Ancorámonos a eles porque a simulación soa subestima (asume equipos máis
+    # iguais do que acaban sendo). MELLORA FUTURA: mesturar real+simulación
+    # dándolle máis peso á simulación segundo avanza a liga.
+    REAL_THR = {"champion": 73, "playoff": 60, "safety": 45}
+    table = _standings(data)
+    row = next(r for r in table if r["team"] == team)
+    cur = row["pts"]
+    played = row["pld"]
+    # BLEND: ao principio (poucos partidos) fiámonos do histórico real; segundo
+    # avanza a liga, damos máis peso á simulación (que xa ten datos desta tempada).
+    # Con 30+ xornadas xogadas, fiámonos só da simulación.
+    w_sim = min(1.0, played / 30.0)
+    thr = {k: round((1 - w_sim) * REAL_THR[k] + w_sim * sim_thr.get(k, REAL_THR[k]))
+           for k in REAL_THR}
+    remaining_games = 38 - played
+    def need(target):
+        n = max(0, target - cur)
+        return {"threshold": target, "need": n,
+                "reachable": n <= remaining_games * 3}
+    return {
+        "team": team, "slug": SLUG_BY_NAME[team],
+        "current_pts": cur, "played": played, "remaining": remaining_games,
+        "champion": need(thr["champion"]),
+        "playoff": need(thr["playoff"]),
+        "safety": need(thr["safety"]),
+    }
+
+
 @app.get("/api/match/next")
 def next_match(team: str = "UD Ourense", blend: float = Query(0.5, ge=0, le=1)):
     if team not in NAMES:
