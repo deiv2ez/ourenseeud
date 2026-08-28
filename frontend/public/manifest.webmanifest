@@ -9,7 +9,7 @@
   "theme_color": "#C8102E",
   "lang": "gl",
   "icons": [
-    { "src": "/escudos/ourense.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/escudos/ourense.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "/escudos/logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/escudos/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }
