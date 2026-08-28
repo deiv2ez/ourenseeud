@@ -140,3 +140,45 @@ def load_stats() -> list[dict]:
         out.append({"jornada": row["jornada"], "home": row["home"],
                     "away": row["away"], "stats_home": sh, "stats_away": sa})
     return out
+
+
+# ---------------------------------------------------- player oRatings (UDO) ----
+RATINGS_TABLE = "player_ratings"
+
+
+def save_ratings(jornada: int, players: list[dict]) -> int:
+    """
+    Garda (upsert) os oRatings dos xogadores dunha xornada. `players` = lista de
+    dicts con polo menos {name, oRating, pos, mins, goals, assists}. Devolve cantos.
+    """
+    if not enabled() or not players:
+        return 0
+    import json as _json
+    rows = [{
+        "jornada": jornada, "player": p["name"],
+        "orating": p["oRating"], "pos": p.get("pos"), "mins": p.get("mins"),
+        "detail": _json.dumps(p),
+    } for p in players]
+    url = f"{SUPABASE_URL}/rest/v1/{RATINGS_TABLE}"
+    headers = {**_headers(), "Prefer": "resolution=merge-duplicates,return=minimal"}
+    with httpx.Client(timeout=15) as client:
+        r = client.post(url, json=rows, headers=headers)
+        r.raise_for_status()
+    return len(rows)
+
+
+def load_ratings() -> list[dict]:
+    """
+    Le todos os oRatings gardados. Devolve lista de {jornada, player, orating, pos, mins}.
+    Se non hai Supabase, [].
+    """
+    if not enabled():
+        return []
+    url = f"{SUPABASE_URL}/rest/v1/{RATINGS_TABLE}?select=jornada,player,orating,pos,mins"
+    try:
+        with httpx.Client(timeout=15) as client:
+            r = client.get(url, headers=_headers())
+            r.raise_for_status()
+            return r.json()
+    except Exception:
+        return []

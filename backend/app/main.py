@@ -556,6 +556,10 @@ def team_profile(slug: str):
 # a chamada en cada visita. Renóvase cando entran novas estatísticas.
 _xg_cache: dict = {}
 
+def _team_xg_cache_clear():
+    """Limpa a caché de análises xG (ao entrar novos datos)."""
+    _xg_cache.clear()
+
 def _team_xg_block(name: str, data: dict, slug: str) -> dict | None:
     """
     Constrúe o bloque de análise xG dun equipo: números agregados + texto (Gemini
@@ -654,9 +658,11 @@ def formations():
 @app.get("/api/squad")
 def get_squad():
     """
-    Plantilla de la UD Ourense con oRating (media de temporada por jugador).
-    Los datos de plantilla salen de un JSON editable por el admin; los oRating
-    se calculan a partir de las notas por partido con app.rating.
+    Plantilla da UD Ourense co oRating real (media dos oRatings por partido, calculados
+    dos volcados de Sofascore metidos polo admin e gardados en Supabase).
+
+    Sen datos aínda (liga a cero ou sen Supabase), devolve a plantilla SEN notas
+    (nada de mock): oRating None ata que se metan estatísticas reais.
     """
     from pathlib import Path
     import json as _json
@@ -664,12 +670,40 @@ def get_squad():
     if not squad_file.exists():
         return []
     squad = _json.loads(squad_file.read_text(encoding="utf-8"))
-    from .rating import season_rating
+
+    # oRatings reais desde Supabase, agregados por xogador
+    from . import odds_store
+    ratings = odds_store.load_ratings()   # [] se non hai
+    by_player: dict = {}
+    for r in ratings:
+        by_player.setdefault(r["player"], []).append(r)
+
+    def norm(s):
+        return (s or "").lower().strip()
+
+    # índice por nome normalizado (os nomes de Sofascore poden diferir lixeiramente)
+    idx = {norm(k): v for k, v in by_player.items()}
+
     for p in squad:
-        s = season_rating(p.get("match_ratings", []))
-        p["oRating"] = s["avg"]
-        p["games"] = s["games"]
-        p["form"] = s["form"]
+        # buscar polo nome; admite lista de alias en p["sofascore"] se existe
+        candidates = [p.get("name")] + (p.get("aliases", []) or [])
+        recs = None
+        for c in candidates:
+            if norm(c) in idx:
+                recs = idx[norm(c)]
+                break
+        if recs:
+            vals = [x["orating"] for x in recs if x.get("orating") is not None]
+            p["oRating"] = round(sum(vals) / len(vals), 1) if vals else None
+            p["games"] = len(vals)
+            # forma: últimos 5 oRatings por xornada
+            last = sorted(recs, key=lambda x: x["jornada"])[-5:]
+            p["form"] = [x["orating"] for x in last]
+        else:
+            p["oRating"] = None
+            p["games"] = 0
+            p["form"] = []
+        p.pop("match_ratings", None)   # fóra o mock
     return squad
 
 
@@ -861,6 +895,35 @@ def admin_set_stats(payload: StatsUpload, user: dict = Depends(require_admin)):
                            "xg": [parsed["home"].get("xg"), parsed["away"].get("xg")]})
     return {"ok": True, "by": user["username"], "jornada": payload.jornada,
             "saved": saved, "parsed": parsed_out,
+            "storage": "supabase" if odds_store.enabled() else "sen persistencia (configura Supabase)"}
+
+
+class RatingsUpload(BaseModel):
+    jornada: int
+    raw: str            # volcado cru da páxina de estatísticas de xogadores (UDO)
+
+
+@app.post("/api/admin/ratings")
+def admin_set_ratings(payload: RatingsUpload, user: dict = Depends(require_admin)):
+    """
+    Recibe o volcado das estatísticas de xogador da UD Ourense, calcula o oRating de
+    cada un e gárdao (Supabase). Só admin. É unha capa de análise (non toca o motor).
+    """
+    from . import odds_store
+    from .orating import parse_lineup
+    players = parse_lineup(payload.raw)
+    if not players:
+        raise HTTPException(400, "Non se puido parsear ningún xogador do volcado.")
+    saved = 0
+    try:
+        saved = odds_store.save_ratings(payload.jornada, players)
+    except Exception as exc:
+        raise HTTPException(502, f"Erro gardando oRatings en Supabase: {exc}")
+    _team_xg_cache_clear()
+    ranked = sorted(players, key=lambda p: -p["oRating"])
+    return {"ok": True, "by": user["username"], "jornada": payload.jornada,
+            "count": len(players), "saved": saved,
+            "ratings": [{"name": p["name"], "oRating": p["oRating"], "pos": p["pos"]} for p in ranked],
             "storage": "supabase" if odds_store.enabled() else "sen persistencia (configura Supabase)"}
 
 
