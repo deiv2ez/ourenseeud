@@ -88,3 +88,21 @@ api.adminSetRatings = (token, jornada, raw) =>
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify({ jornada, raw }),
   }).then((r) => { if (!r.ok) throw new Error("ratings"); return r.json(); });
+
+api.adminGetSquad = (token) =>
+  fetch(`${BASE}/api/admin/squad`, { headers: { Authorization: `Bearer ${token}` } })
+    .then((r) => { if (!r.ok) throw new Error("auth"); return r.json(); });
+
+api.adminSaveSquad = (token, players) =>
+  fetch(`${BASE}/api/admin/squad`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ players }),
+  }).then((r) => { if (!r.ok) throw new Error("save"); return r.json(); });
+
+api.adminDeleteSigning = (token, name) =>
+  fetch(`${BASE}/api/admin/squad/${encodeURIComponent(name)}`, {
+    method: "DELETE", headers: { Authorization: `Bearer ${token}` },
+  }).then((r) => { if (!r.ok) throw new Error("del"); return r.json(); });
+
+api.playerDetail = (name) => get(`/api/player/${encodeURIComponent(name)}`);
