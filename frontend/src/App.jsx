@@ -182,12 +182,13 @@ const SQUAD = [
 
 /* ---------------------------------------------------- helpers UI ---------- */
 function BrandCrest({ size = 36 }) {
-  // Escudo oficial da UD Ourense desde /public/escudos/ourense.png.
+  // Logo PERSONALIZADO da marca (icona, cabeceiras, pantalla de carga) desde
+  // /public/escudos/logo.png. NON se usa nas clasificacións (alí vai o escudo normal).
   // Mentres non exista o PNG, cae a un placeholder "é" en vermello.
   const [ok, setOk] = useState(true);
   if (ok) {
     return (
-      <img src="/escudos/ourense.png" alt="UD Ourense" onError={() => setOk(false)}
+      <img src="/escudos/logo.png" alt="Ourense é UD" onError={() => setOk(false)}
         className="shrink-0" style={{ width: size, height: size, objectFit: "contain" }} />
     );
   }
@@ -226,7 +227,9 @@ function Bar({ value, color }) {
 function Loading({ text }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-neutral-200 bg-white py-16 text-neutral-400">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-neutral-200 border-t-neutral-500" />
+      <div className="animate-pulse">
+        <BrandCrest size={48} />
+      </div>
       {text && <span className="text-sm">{text}</span>}
     </div>
   );
@@ -384,6 +387,8 @@ function AdminPanel({ t, onExit }) {
   // Anterior (stats)
   const [prevJornada, setPrevJornada] = useState(null);
   const [prevRows, setPrevRows] = useState([]);   // [{home,away,has_stats,raw}]
+  const [ratingsRaw, setRatingsRaw] = useState(""); // volcado da plantilla UDO
+  const [ratingsOut, setRatingsOut] = useState([]); // resultado dos oRatings
 
   const doLogin = async () => {
     setErr(""); setBusy(true);
@@ -440,6 +445,18 @@ function AdminPanel({ t, onExit }) {
       await loadPrev(token);
     } catch {
       setMsg("✗ Erro ao gardar as estatísticas.");
+    } finally { setBusy(false); }
+  };
+
+  const saveRatings = async () => {
+    setMsg(""); setBusy(true); setRatingsOut([]);
+    try {
+      if (!ratingsRaw.trim()) { setMsg("Pega o volcado das estatísticas dos xogadores da UDO."); setBusy(false); return; }
+      const res = await api.adminSetRatings(token, prevJornada, ratingsRaw);
+      setRatingsOut(res.ratings || []);
+      setMsg(`✓ Calculados ${res.count} oRatings da xornada ${prevJornada} (${res.storage}).`);
+    } catch {
+      setMsg("✗ Erro ao calcular os oRatings. Revisa o formato do volcado.");
     } finally { setBusy(false); }
   };
 
@@ -526,6 +543,32 @@ function AdminPanel({ t, onExit }) {
             <button onClick={saveStats} disabled={busy}
               className="mt-4 w-full rounded-lg py-3 text-sm font-bold text-white disabled:opacity-50"
               style={{ backgroundColor: RED }}>{busy ? "Gardando…" : "Gardar estatísticas"}</button>
+
+            {/* oRatings da plantilla da UDO */}
+            <div className="mt-8 border-t border-neutral-200 pt-5">
+              <h2 className="mb-1 text-sm font-bold">oRating · plantilla UD Ourense</h2>
+              <p className="mb-3 text-xs text-neutral-500">
+                Pega o volcado das estatísticas dos xogadores da UDO (páxina de player stats de
+                Sofascore). Calcúlase o oRating de cada un e gárdase para a plantilla.
+              </p>
+              <textarea value={ratingsRaw} onChange={(e) => setRatingsRaw(e.target.value)}
+                rows={4} placeholder="Pega aquí o volcado dos xogadores da UD Ourense…"
+                className="w-full resize-y rounded-md border border-neutral-300 px-2 py-1.5 text-xs font-mono" />
+              <button onClick={saveRatings} disabled={busy}
+                className="mt-3 w-full rounded-lg border border-neutral-800 bg-neutral-800 py-2.5 text-sm font-bold text-white disabled:opacity-50">
+                {busy ? "Calculando…" : "Calcular e gardar oRatings"}
+              </button>
+              {ratingsOut.length > 0 && (
+                <div className="mt-3 space-y-1">
+                  {ratingsOut.map((p, i) => (
+                    <div key={i} className="flex items-center justify-between rounded bg-neutral-50 px-2 py-1 text-xs">
+                      <span>{p.name} <span className="text-neutral-400">· {p.pos}</span></span>
+                      <span className="tabular-nums font-bold" style={{ color: p.oRating >= 7 ? "#1a8a4a" : p.oRating < 5 ? "#c0392b" : "#666" }}>{p.oRating.toFixed(1)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </>
         )}
 
@@ -1572,8 +1615,8 @@ function Squad({ t }) {
     return () => { alive = false; };
   }, []);
 
-  const GROUP = { GK: "gk", DF: "df", LI: "df", LD: "df", MC: "mf", MCO: "mf", EI: "fw", ED: "fw", DC: "fw" };
-  const POS = { GK: "POR", DF: "DFC", LI: "LI", LD: "LD", MC: "MC", MCO: "MCO", EI: "EI", ED: "ED", DC: "DC" };
+  const GROUP = { GK: "gk", POR: "gk", DEF: "df", DF: "df", LI: "df", LD: "df", MED: "mf", MC: "mf", MCO: "mf", DEL: "fw", EI: "fw", ED: "fw", DC: "fw" };
+  const POS = { GK: "POR", POR: "POR", DEF: "DEF", DF: "DFC", LI: "LI", LD: "LD", MED: "MED", MC: "MC", MCO: "MCO", DEL: "DEL", EI: "EI", ED: "ED", DC: "DC" };
   const rc = (r) => (r == null ? "#c4c4c4" : r >= 7.0 ? "#1a8a4a" : r >= 6.3 ? "#c99700" : "#b06a3b");
   const fmtMV = (v) => (v == null ? "—" : `${Math.round(v / 1000)} mil €`);
   const list = filter === "all" ? players : players.filter((p) => GROUP[p.pos] === filter);
@@ -1596,13 +1639,13 @@ function Squad({ t }) {
             <div className="mb-2 flex items-start justify-between">
               <div className="flex items-baseline gap-1.5">
                 <span className="text-2xl font-black tabular-nums">{p.dorsal ?? "–"}</span>
-                <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-neutral-500">{POS[p.pos]}</span>
+                <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-neutral-500">{POS[p.pos] || p.pos}</span>
               </div>
               <span className="grid h-9 w-9 place-items-center rounded-lg text-sm font-black text-white" style={{ backgroundColor: rc(p.oR) }}>{p.oR != null ? p.oR.toFixed(1) : "–"}</span>
             </div>
             <h4 className="truncate text-sm font-bold leading-tight">{p.name}</h4>
-            <div className="mt-0.5 text-xs text-neutral-500">{2026 - p.born} {t.years} · {p.nat}</div>
-            <div className="mt-2 border-t border-neutral-100 pt-1.5 text-xs"><span className="text-neutral-400">{t.value}: </span><span className="font-semibold text-neutral-700">{fmtMV(p.mv)}</span></div>
+            <div className="mt-0.5 text-xs text-neutral-500">{p.born ? `${2026 - p.born} ${t.years} · ` : ""}{p.nat}</div>
+            {p.games > 0 && <div className="mt-2 border-t border-neutral-100 pt-1.5 text-xs"><span className="text-neutral-400">{t.games || "Partidos"}: </span><span className="font-semibold text-neutral-700">{p.games}</span></div>}
           </div>
         ))}
       </div>
