@@ -57,6 +57,8 @@ const I18N = {
     tpPlayed: "Xogados", tpUpcoming: "Pendentes", tpHome: "Casa", tpAway: "Fóra", tpJ: "X",
     tpStyle: "Perfil de estilo", tpOffense: "Ataque", tpDefense: "Defensa",
     tpHomePerf: "Local", tpAwayPerf: "Visitante", tpStyleNote: "Nota de estilo (prensa)",
+    tpXgTitle: "Rendemento xG", tpXgMatches: "partidos con estatísticas", tpXgFor: "Ataque",
+    tpXgAgainst: "Defensa", tpXgGoals: "Goles", tpXgForShort: "a favor", tpXgAgainstShort: "en contra",
     anMerited: "Táboa merecida", anProjection: "Proxección", anObjectives: "Que precisa a UDO", anCompare: "Comparador",
     anMeritedSub: "Clasificación por puntos MERECIDOS (oPts) en vez dos reais.",
     anProjSub: "Onde acabará cada equipo segundo o modelo (posición media e rango).",
@@ -97,6 +99,8 @@ const I18N = {
     tpPlayed: "Jugados", tpUpcoming: "Pendientes", tpHome: "Casa", tpAway: "Fuera", tpJ: "J",
     tpStyle: "Perfil de estilo", tpOffense: "Ataque", tpDefense: "Defensa",
     tpHomePerf: "Local", tpAwayPerf: "Visitante", tpStyleNote: "Nota de estilo (prensa)",
+    tpXgTitle: "Rendimiento xG", tpXgMatches: "partidos con estadísticas", tpXgFor: "Ataque",
+    tpXgAgainst: "Defensa", tpXgGoals: "Goles", tpXgForShort: "a favor", tpXgAgainstShort: "en contra",
     anMerited: "Tabla merecida", anProjection: "Proyección", anObjectives: "Qué necesita la UDO", anCompare: "Comparador",
     anMeritedSub: "Clasificación por puntos MERECIDOS (oPts) en vez de los reales.",
     anProjSub: "Dónde acabará cada equipo según el modelo (posición media y rango).",
@@ -372,29 +376,44 @@ function AdminPanel({ t, onExit }) {
   const [pass, setPass] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState("prev");        // prev | next | settings
+  const [msg, setMsg] = useState("");
+  // Siguiente (cuotas)
   const [jornada, setJornada] = useState(null);
   const [rows, setRows] = useState([]);
-  const [msg, setMsg] = useState("");
+  // Anterior (stats)
+  const [prevJornada, setPrevJornada] = useState(null);
+  const [prevRows, setPrevRows] = useState([]);   // [{home,away,has_stats,raw}]
 
   const doLogin = async () => {
     setErr(""); setBusy(true);
     try {
       const r = await api.login(user.trim(), pass);
       setToken(r.token);
-      const md = await api.adminMatchdayOdds(r.token);
-      setJornada(md.jornada);
-      setRows((md.matches || []).map((m) => ({
-        ...m,
-        c_home: m.c_home ?? "", c_draw: m.c_draw ?? "", c_away: m.c_away ?? "",
-      })));
+      await Promise.all([loadNext(r.token), loadPrev(r.token)]);
     } catch {
       setErr("Usuario ou contrasinal incorrectos.");
     } finally { setBusy(false); }
   };
 
-  const setCell = (i, k, v) => setRows((rs) => rs.map((r, j) => j === i ? { ...r, [k]: v } : r));
+  const loadNext = async (tk) => {
+    const md = await api.adminMatchdayOdds(tk);
+    setJornada(md.jornada);
+    setRows((md.matches || []).map((m) => ({
+      ...m, c_home: m.c_home ?? "", c_draw: m.c_draw ?? "", c_away: m.c_away ?? "",
+    })));
+  };
 
-  const save = async () => {
+  const loadPrev = async (tk) => {
+    const pm = await api.adminPreviousMatches(tk);
+    setPrevJornada(pm.jornada);
+    setPrevRows((pm.matches || []).map((m) => ({ ...m, raw: "" })));
+  };
+
+  const setCell = (i, k, v) => setRows((rs) => rs.map((r, j) => j === i ? { ...r, [k]: v } : r));
+  const setPrevCell = (i, v) => setPrevRows((rs) => rs.map((r, j) => j === i ? { ...r, raw: v } : r));
+
+  const saveOdds = async () => {
     setMsg(""); setBusy(true);
     try {
       const entries = rows
@@ -402,9 +421,25 @@ function AdminPanel({ t, onExit }) {
         .map((r) => ({ home: r.home, away: r.away,
           c_home: parseFloat(r.c_home), c_draw: parseFloat(r.c_draw), c_away: parseFloat(r.c_away) }));
       const res = await api.adminSetOdds(token, jornada, entries);
-      setMsg(`✓ Gardadas ${res.updated} cuotas da xornada ${jornada}. Recalculando todo…`);
+      setMsg(`✓ Gardadas ${res.updated} cuotas da xornada ${jornada}. Recalculado. (${res.storage})`);
     } catch {
-      setMsg("✗ Erro ao gardar. Comproba a sesión.");
+      setMsg("✗ Erro ao gardar as cuotas.");
+    } finally { setBusy(false); }
+  };
+
+  const saveStats = async () => {
+    setMsg(""); setBusy(true);
+    try {
+      const entries = prevRows
+        .filter((r) => r.raw && r.raw.trim())
+        .map((r) => ({ home: r.home, away: r.away, raw: r.raw }));
+      if (!entries.length) { setMsg("Pega o volcado dalgún partido antes de gardar."); setBusy(false); return; }
+      const res = await api.adminSetStats(token, prevJornada, entries);
+      const xgs = res.parsed.map((p) => `${p.xg[0]}-${p.xg[1]}`).join(", ");
+      setMsg(`✓ Gardadas estatísticas de ${res.saved} partidos. xG: ${xgs} (${res.storage})`);
+      await loadPrev(token);
+    } catch {
+      setMsg("✗ Erro ao gardar as estatísticas.");
     } finally { setBusy(false); }
   };
 
@@ -413,12 +448,7 @@ function AdminPanel({ t, onExit }) {
     try {
       const res = await api.adminReload(token);
       setMsg(`✓ Resultados actualizados desde a API (${res.played} partidos xogados). Recalculado.`);
-      // recargar os partidos da xornada por se cambiou
-      const md = await api.adminMatchdayOdds(token);
-      setJornada(md.jornada);
-      setRows((md.matches || []).map((m) => ({
-        ...m, c_home: m.c_home ?? "", c_draw: m.c_draw ?? "", c_away: m.c_away ?? "",
-      })));
+      await Promise.all([loadNext(token), loadPrev(token)]);
     } catch {
       setMsg("✗ Erro ao actualizar resultados. Comproba a clave da API en Render.");
     } finally { setBusy(false); }
@@ -448,42 +478,107 @@ function AdminPanel({ t, onExit }) {
     );
   }
 
-  // panel de cuotas
+  const TABS = [["prev", "Anterior"], ["next", "Seguinte"], ["settings", "Axustes"]];
+
   return (
     <div className="app-shell bg-neutral-50">
       <div className="mx-auto max-w-2xl px-4 py-6">
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-lg font-black">Cuotas · Xornada {jornada}</h1>
+          <h1 className="text-lg font-black">Panel · Ourense é UD</h1>
           <button onClick={onExit} className="text-xs text-neutral-500">Saír</button>
         </div>
-        <button onClick={reload} disabled={busy}
-          className="mb-4 w-full rounded-lg border border-neutral-300 bg-white py-2.5 text-sm font-semibold text-neutral-700 hover:bg-neutral-100 disabled:opacity-50">
-          {busy ? "…" : "↻ Actualizar resultados desde a API"}
-        </button>
-        <p className="mb-4 text-xs text-neutral-500">
-          Mete as cuotas decimais 1-X-2 (de betexplorer). Ao gardar, actualízanse todas as
-          predicións e córrense as simulacións. Deixa en branco os partidos sen cuota.
-        </p>
-        <div className="space-y-2">
-          {rows.map((r, i) => (
-            <div key={i} className="rounded-lg border border-neutral-200 bg-white p-3">
-              <div className="mb-2 text-sm font-semibold">{r.home} <span className="text-neutral-400">vs</span> {r.away}</div>
-              <div className="grid grid-cols-3 gap-2">
-                {[["c_home", "1"], ["c_draw", "X"], ["c_away", "2"]].map(([k, label]) => (
-                  <div key={k}>
-                    <label className="block text-[10px] uppercase text-neutral-400">{label}</label>
-                    <input inputMode="decimal" value={r[k]} onChange={(e) => setCell(i, k, e.target.value)}
-                      placeholder="—" className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm tabular-nums" />
-                  </div>
-                ))}
-              </div>
-            </div>
+
+        {/* pestanas */}
+        <div className="mb-4 inline-flex gap-1 rounded-lg border border-neutral-200 bg-white p-1">
+          {TABS.map(([k, label]) => (
+            <button key={k} onClick={() => { setTab(k); setMsg(""); }}
+              className={`tap rounded-md px-4 py-1.5 text-sm font-medium transition ${tab === k ? "text-white" : "text-neutral-600 hover:bg-neutral-100"}`}
+              style={tab === k ? { backgroundColor: RED } : undefined}>{label}</button>
           ))}
         </div>
-        {msg && <p className="mt-3 text-sm font-medium" style={{ color: msg.startsWith("✓") ? "#1a8a4a" : "#c0392b" }}>{msg}</p>}
-        <button onClick={save} disabled={busy}
-          className="mt-4 w-full rounded-lg py-3 text-sm font-bold text-white disabled:opacity-50"
-          style={{ backgroundColor: RED }}>{busy ? "Gardando…" : "Gardar e recalcular"}</button>
+
+        {/* ---- ANTERIOR: estatísticas xG dos partidos xogados ---- */}
+        {tab === "prev" && (
+          <>
+            <h2 className="mb-1 text-sm font-bold">Estatísticas · Xornada {prevJornada}</h2>
+            <p className="mb-4 text-xs text-neutral-500">
+              Pega ao lado de cada partido o volcado do Web Scraper de Sofascore (fila "Match overview").
+              Extráense xG, tiros, posesión… para o análise das fichas. Non afecta ás predicións.
+            </p>
+            <div className="space-y-3">
+              {prevRows.map((r, i) => {
+                const th = T[NAME_TO_KEY[r.home]] || { n: r.home, s: "?" };
+                const ta = T[NAME_TO_KEY[r.away]] || { n: r.away, s: "?" };
+                return (
+                  <div key={i} className="rounded-lg border border-neutral-200 bg-white p-3">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                      <span>{th.n} <span className="text-neutral-400">vs</span> {ta.n}</span>
+                      {r.has_stats && <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-700">✓ xa hai</span>}
+                    </div>
+                    <textarea value={r.raw} onChange={(e) => setPrevCell(i, e.target.value)}
+                      rows={2} placeholder="Pega aquí o volcado de Sofascore deste partido…"
+                      className="w-full resize-y rounded-md border border-neutral-300 px-2 py-1.5 text-xs font-mono" />
+                  </div>
+                );
+              })}
+            </div>
+            {msg && <p className="mt-3 text-sm font-medium" style={{ color: msg.startsWith("✓") ? "#1a8a4a" : "#c0392b" }}>{msg}</p>}
+            <button onClick={saveStats} disabled={busy}
+              className="mt-4 w-full rounded-lg py-3 text-sm font-bold text-white disabled:opacity-50"
+              style={{ backgroundColor: RED }}>{busy ? "Gardando…" : "Gardar estatísticas"}</button>
+          </>
+        )}
+
+        {/* ---- SEGUINTE: cuotas da próxima xornada ---- */}
+        {tab === "next" && (
+          <>
+            <h2 className="mb-1 text-sm font-bold">Cuotas · Xornada {jornada}</h2>
+            <p className="mb-4 text-xs text-neutral-500">
+              Mete as cuotas decimais 1-X-2 (de betexplorer). Ao gardar, actualízanse todas as
+              predicións e córrense as simulacións. Deixa en branco os partidos sen cuota.
+            </p>
+            <div className="space-y-2">
+              {rows.map((r, i) => {
+                const th = T[NAME_TO_KEY[r.home]] || { n: r.home };
+                const ta = T[NAME_TO_KEY[r.away]] || { n: r.away };
+                return (
+                  <div key={i} className="rounded-lg border border-neutral-200 bg-white p-3">
+                    <div className="mb-2 text-sm font-semibold">{th.n} <span className="text-neutral-400">vs</span> {ta.n}</div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[["c_home", "1"], ["c_draw", "X"], ["c_away", "2"]].map(([k, label]) => (
+                        <div key={k}>
+                          <label className="block text-[10px] uppercase text-neutral-400">{label}</label>
+                          <input inputMode="decimal" value={r[k]} onChange={(e) => setCell(i, k, e.target.value)}
+                            placeholder="—" className="w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm tabular-nums" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {msg && <p className="mt-3 text-sm font-medium" style={{ color: msg.startsWith("✓") ? "#1a8a4a" : "#c0392b" }}>{msg}</p>}
+            <button onClick={saveOdds} disabled={busy}
+              className="mt-4 w-full rounded-lg py-3 text-sm font-bold text-white disabled:opacity-50"
+              style={{ backgroundColor: RED }}>{busy ? "Gardando…" : "Gardar e recalcular"}</button>
+          </>
+        )}
+
+        {/* ---- AXUSTES ---- */}
+        {tab === "settings" && (
+          <>
+            <h2 className="mb-1 text-sm font-bold">Axustes</h2>
+            <p className="mb-4 text-xs text-neutral-500">
+              Actualiza os resultados dos partidos desde a API-Football. Faino os días de xornada
+              para ver a clasificación actualizada.
+            </p>
+            <button onClick={reload} disabled={busy}
+              className="w-full rounded-lg border border-neutral-300 bg-white py-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-100 disabled:opacity-50">
+              {busy ? "…" : "↻ Actualizar resultados desde a API"}
+            </button>
+            {msg && <p className="mt-3 text-sm font-medium" style={{ color: msg.startsWith("✓") ? "#1a8a4a" : "#c0392b" }}>{msg}</p>}
+          </>
+        )}
       </div>
     </div>
   );
@@ -640,6 +735,56 @@ function TeamProfile({ t, slug, onBack }) {
               <span className="font-semibold">{t.tpStyleNote}: </span>{d.style_note}
             </div>
           )}
+        </section>
+      )}
+
+      {/* ---- Rendemento xG (capa de análise; só se hai estatísticas metidas) ---- */}
+      {d.xg && (
+        <section className="mt-5 rounded-lg border border-neutral-200 bg-white p-4">
+          <h3 className="mb-1 text-sm font-bold">{t.tpXgTitle}</h3>
+          <p className="mb-3 text-[11px] text-neutral-400">{d.xg.stats.matches} {t.tpXgMatches}</p>
+
+          {/* barras goles vs xG */}
+          {[["af", d.xg.stats.gf, d.xg.stats.xgf, d.xg.stats.off_diff],
+            ["co", d.xg.stats.ga, d.xg.stats.xga, d.xg.stats.def_diff]].map(([kind, goals, xg, diff]) => {
+            const max = Math.max(goals, xg, 1);
+            const isOff = kind === "af";
+            // para ofensiva: diff+ é bo; para defensiva: diff+ é bo tamén (concede menos)
+            const good = diff >= 0;
+            return (
+              <div key={kind} className="mb-3">
+                <div className="mb-1 flex items-center justify-between text-xs">
+                  <span className="font-semibold text-neutral-600">{isOff ? t.tpXgFor : t.tpXgAgainst}</span>
+                  <span className="tabular-nums font-bold" style={{ color: good ? "#1a8a4a" : "#c0392b" }}>
+                    {diff > 0 ? "+" : ""}{diff}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-16 text-[10px] text-neutral-400">{t.tpXgGoals}</span>
+                    <div className="h-2.5 flex-1 rounded bg-neutral-100">
+                      <div className="h-full rounded" style={{ width: `${(goals / max) * 100}%`, backgroundColor: RED }} />
+                    </div>
+                    <span className="w-7 text-right text-[10px] tabular-nums font-semibold">{goals}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-16 text-[10px] text-neutral-400">xG</span>
+                    <div className="h-2.5 flex-1 rounded bg-neutral-100">
+                      <div className="h-full rounded bg-neutral-400" style={{ width: `${(xg / max) * 100}%` }} />
+                    </div>
+                    <span className="w-7 text-right text-[10px] tabular-nums font-semibold">{xg}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* análise textual: Gemini se hai, se non as etiquetas por umbrais */}
+          <div className="mt-3 rounded-md bg-neutral-50 p-3 text-xs leading-relaxed text-neutral-700">
+            {d.xg.analysis
+              ? d.xg.analysis
+              : (d.xg.insights || []).map((s, i) => <p key={i} className={i > 0 ? "mt-1.5" : ""}>{s}</p>)}
+          </div>
         </section>
       )}
     </div>
