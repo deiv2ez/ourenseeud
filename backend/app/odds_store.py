@@ -182,3 +182,56 @@ def load_ratings() -> list[dict]:
             return r.json()
     except Exception:
         return []
+
+
+# ------------------------------------------------- squad meta (edición admin) --
+SQUAD_TABLE = "squad_meta"
+
+
+def save_squad_meta(players: list[dict]) -> int:
+    """
+    Garda (upsert) os datos editables da plantilla: apodo (nome no frontend), dorsal,
+    posición, nota/adxectivo, e se é un fichaxe. Clave: name (o nome de Sofascore, ou
+    o nome dado para fichaxes). Devolve cantos.
+    """
+    if not enabled() or not players:
+        return 0
+    rows = [{
+        "name": p["name"],
+        "nick": p.get("nick"), "dorsal": p.get("dorsal"),
+        "pos": p.get("pos"), "note": p.get("note"),
+        "signing": bool(p.get("signing", False)),
+    } for p in players]
+    url = f"{SUPABASE_URL}/rest/v1/{SQUAD_TABLE}"
+    headers = {**_headers(), "Prefer": "resolution=merge-duplicates,return=minimal"}
+    with httpx.Client(timeout=15) as client:
+        r = client.post(url, json=rows, headers=headers)
+        r.raise_for_status()
+    return len(rows)
+
+
+def load_squad_meta() -> list[dict]:
+    """Le os datos editables da plantilla. Se non hai Supabase, []."""
+    if not enabled():
+        return []
+    url = f"{SUPABASE_URL}/rest/v1/{SQUAD_TABLE}?select=name,nick,dorsal,pos,note,signing"
+    try:
+        with httpx.Client(timeout=15) as client:
+            r = client.get(url, headers=_headers())
+            r.raise_for_status()
+            return r.json()
+    except Exception:
+        return []
+
+
+def delete_squad_meta(name: str) -> bool:
+    """Borra un xogador engadido (fichaxe) da táboa squad_meta."""
+    if not enabled():
+        return False
+    import urllib.parse
+    q = urllib.parse.quote(name)
+    url = f"{SUPABASE_URL}/rest/v1/{SQUAD_TABLE}?name=eq.{q}"
+    with httpx.Client(timeout=15) as client:
+        r = client.delete(url, headers=_headers())
+        r.raise_for_status()
+    return True

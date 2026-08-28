@@ -500,7 +500,7 @@ def team_profile(slug: str):
     next_match = None
     if upcoming:
         nm = upcoming[0]
-        p = model.match_probs(nm["home"], nm["away"])
+        p = model.match_probs(nm["home"], nm["away"], odds=nm.get("odds"))
         is_home = nm["home"] == name
         next_match = {
             "jornada": nm["jornada"], "home": nm["home"], "away": nm["away"],
@@ -508,9 +508,11 @@ def team_profile(slug: str):
             "date": nm.get("date"), "is_home": is_home,
             "likely_score": p["likely_score"],
             "oGoals_home": p["oGoals_home"], "oGoals_away": p["oGoals_away"],
-            "p_win": round((p["home_win"] if is_home else p["away_win"]) * 100),
+            # perspectiva LOCAL-EMPATE-VISITANTE (igual que a sección Xornada),
+            # para que o mesmo partido se vexa idéntico nos dous sitios.
+            "p_home": round(p["home_win"] * 100),
             "p_draw": round(p["draw"] * 100),
-            "p_loss": round((p["away_win"] if is_home else p["home_win"]) * 100),
+            "p_away": round(p["away_win"] * 100),
         }
 
     # calendario: xogados (con resultado) + pendentes
@@ -658,53 +660,66 @@ def formations():
 @app.get("/api/squad")
 def get_squad():
     """
-    Plantilla da UD Ourense co oRating real (media dos oRatings por partido, calculados
-    dos volcados de Sofascore metidos polo admin e gardados en Supabase).
-
-    Sen datos aínda (liga a cero ou sen Supabase), devolve a plantilla SEN notas
-    (nada de mock): oRating None ata que se metan estatísticas reais.
+    Plantilla da UD Ourense. Combina tres fontes:
+      1. squad.json (base: nomes de Sofascore, dorsal e posición por defecto).
+      2. player_ratings de Supabase → oRating real agregado por xogador.
+      3. squad_meta de Supabase → edicións do admin (apodo/nick, dorsal, posición,
+         nota/adxectivo) e FICHAXES engadidos.
+    Sen datos, oRating None (nada de mock).
     """
     from pathlib import Path
     import json as _json
     squad_file = Path(__file__).resolve().parent.parent / "data" / "squad.json"
-    if not squad_file.exists():
-        return []
-    squad = _json.loads(squad_file.read_text(encoding="utf-8"))
+    squad = _json.loads(squad_file.read_text(encoding="utf-8")) if squad_file.exists() else []
 
-    # oRatings reais desde Supabase, agregados por xogador
     from . import odds_store
-    ratings = odds_store.load_ratings()   # [] se non hai
-    by_player: dict = {}
-    for r in ratings:
-        by_player.setdefault(r["player"], []).append(r)
+    ratings = odds_store.load_ratings()
+    meta_rows = odds_store.load_squad_meta()
 
     def norm(s):
         return (s or "").lower().strip()
 
-    # índice por nome normalizado (os nomes de Sofascore poden diferir lixeiramente)
-    idx = {norm(k): v for k, v in by_player.items()}
+    by_player: dict = {}
+    for r in ratings:
+        by_player.setdefault(norm(r["player"]), []).append(r)
+    meta_by_name = {norm(m["name"]): m for m in meta_rows}
 
-    for p in squad:
-        # buscar polo nome; admite lista de alias en p["sofascore"] se existe
+    def apply_ratings(p):
         candidates = [p.get("name")] + (p.get("aliases", []) or [])
-        recs = None
-        for c in candidates:
-            if norm(c) in idx:
-                recs = idx[norm(c)]
-                break
+        recs = next((by_player[norm(c)] for c in candidates if norm(c) in by_player), None)
         if recs:
             vals = [x["orating"] for x in recs if x.get("orating") is not None]
             p["oRating"] = round(sum(vals) / len(vals), 1) if vals else None
             p["games"] = len(vals)
-            # forma: últimos 5 oRatings por xornada
-            last = sorted(recs, key=lambda x: x["jornada"])[-5:]
-            p["form"] = [x["orating"] for x in last]
+            p["form"] = [x["orating"] for x in sorted(recs, key=lambda x: x["jornada"])[-5:]]
         else:
-            p["oRating"] = None
-            p["games"] = 0
-            p["form"] = []
-        p.pop("match_ratings", None)   # fóra o mock
-    return squad
+            p["oRating"], p["games"], p["form"] = None, 0, []
+        p.pop("match_ratings", None)
+        return p
+
+    out = []
+    seen = set()
+    for p in squad:
+        m = meta_by_name.get(norm(p["name"]))
+        if m:
+            # aplicar edicións do admin (apodo, dorsal, posición, nota)
+            if m.get("nick"): p["nick"] = m["nick"]
+            if m.get("dorsal") is not None: p["dorsal"] = m["dorsal"]
+            if m.get("pos"): p["pos"] = m["pos"]
+            if m.get("note"): p["note"] = m["note"]
+        p["display"] = p.get("nick") or p["name"]   # nome a amosar no frontend
+        out.append(apply_ratings(p))
+        seen.add(norm(p["name"]))
+
+    # fichaxes: xogadores en squad_meta con signing=True que non están no squad.json
+    for m in meta_rows:
+        if m.get("signing") and norm(m["name"]) not in seen:
+            p = {"name": m["name"], "nick": m.get("nick"),
+                 "display": m.get("nick") or m["name"],
+                 "dorsal": m.get("dorsal"), "pos": m.get("pos") or "?",
+                 "note": m.get("note"), "signing": True, "nat": "—"}
+            out.append(apply_ratings(p))
+    return out
 
 
 ## ----------------------------------------------------------- auth ----------
@@ -925,6 +940,124 @@ def admin_set_ratings(payload: RatingsUpload, user: dict = Depends(require_admin
             "count": len(players), "saved": saved,
             "ratings": [{"name": p["name"], "oRating": p["oRating"], "pos": p["pos"]} for p in ranked],
             "storage": "supabase" if odds_store.enabled() else "sen persistencia (configura Supabase)"}
+
+
+class SquadMetaEntry(BaseModel):
+    name: str                    # nome de Sofascore (referencia interna)
+    nick: str | None = None      # apodo/nome a amosar no frontend
+    dorsal: int | None = None
+    pos: str | None = None       # GK/DEF/MED/DEL
+    note: str | None = None      # frase/adxectivo curto
+    signing: bool = False        # True se é un fichaxe engadido a man
+
+
+class SquadMetaUpload(BaseModel):
+    players: list[SquadMetaEntry]
+
+
+@app.get("/api/admin/squad")
+def admin_get_squad(user: dict = Depends(require_admin)):
+    """Plantilla completa (base + edicións + fichaxes) para editar no panel."""
+    return get_squad()
+
+
+@app.post("/api/admin/squad")
+def admin_save_squad(payload: SquadMetaUpload, user: dict = Depends(require_admin)):
+    """Garda edicións da plantilla (apodo, dorsal, posición, nota) e fichaxes."""
+    from . import odds_store
+    players = [e.model_dump() for e in payload.players]
+    saved = 0
+    try:
+        saved = odds_store.save_squad_meta(players)
+    except Exception as exc:
+        raise HTTPException(502, f"Erro gardando a plantilla en Supabase: {exc}")
+    return {"ok": True, "by": user["username"], "saved": saved,
+            "storage": "supabase" if odds_store.enabled() else "sen persistencia (configura Supabase)"}
+
+
+@app.delete("/api/admin/squad/{name}")
+def admin_delete_signing(name: str, user: dict = Depends(require_admin)):
+    """Borra un fichaxe engadido a man."""
+    from . import odds_store
+    try:
+        odds_store.delete_squad_meta(name)
+    except Exception as exc:
+        raise HTTPException(502, f"Erro borrando: {exc}")
+    return {"ok": True, "deleted": name}
+
+
+@app.get("/api/player/{name}")
+def player_detail(name: str):
+    """
+    Detalle dun xogador para a súa ficha: agrega TODAS as estatísticas gardadas dos
+    seus partidos (goles, asistencias, minutos, pases, duelos...) e deriva métricas
+    (goles/90, asist/90, % pases, % duelos gañados, oRating medio, forma...).
+    """
+    from . import odds_store
+    import json as _json
+    import urllib.parse
+    ratings = odds_store.load_ratings()
+
+    def norm(s):
+        return (s or "").lower().strip()
+
+    # recoller as filas detalladas do xogador (o campo 'detail' garda o parse completo)
+    mine = []
+    if odds_store.enabled():
+        # pedimos o detalle completo (non só o resumo de load_ratings)
+        try:
+            import httpx
+            url = (f"{odds_store.SUPABASE_URL}/rest/v1/{odds_store.RATINGS_TABLE}"
+                   f"?player=eq.{urllib.parse.quote(name)}"
+                   f"&select=jornada,orating,detail")
+            with httpx.Client(timeout=15) as client:
+                r = client.get(url, headers=odds_store._headers())
+                r.raise_for_status()
+                for row in r.json():
+                    d = row.get("detail")
+                    if isinstance(d, str):
+                        d = _json.loads(d)
+                    if d:
+                        d["jornada"] = row["jornada"]
+                        d["oRating"] = row.get("orating")
+                        mine.append(d)
+        except Exception:
+            mine = []
+
+    if not mine:
+        return {"name": name, "games": 0, "stats": None}
+
+    n = len(mine)
+    tot_min = sum(p.get("mins", 0) for p in mine) or 1
+    goals = sum(p.get("goals", 0) for p in mine)
+    assists = sum(p.get("assists", 0) for p in mine)
+    pass_ok = sum(p.get("pass_ok", 0) for p in mine)
+    pass_tot = sum(p.get("pass_tot", 0) for p in mine)
+    duels_w = sum(p.get("duels_won", 0) + p.get("aerial_won", 0) for p in mine)
+    duels_t = sum(p.get("duels_tot", 0) + p.get("aerial_tot", 0) for p in mine)
+    tackles = sum(p.get("tackles_won", 0) for p in mine)
+    oratings = [p["oRating"] for p in mine if p.get("oRating") is not None]
+
+    stats = {
+        "games": n,
+        "minutes": tot_min,
+        "goals": goals,
+        "assists": assists,
+        "ga": goals + assists,                                   # contribucións
+        "goals_per90": round(goals / tot_min * 90, 2),
+        "assists_per90": round(assists / tot_min * 90, 2),
+        "ga_per90": round((goals + assists) / tot_min * 90, 2),
+        "min_per_goal": round(tot_min / goals) if goals else None,
+        "passes_pg": round(pass_ok / n, 1),
+        "pass_pct": round(pass_ok / pass_tot * 100) if pass_tot else None,
+        "duels_won_pct": round(duels_w / duels_t * 100) if duels_t else None,
+        "duels_won_pg": round(duels_w / n, 1),
+        "tackles_pg": round(tackles / n, 1),
+        "orating_avg": round(sum(oratings) / len(oratings), 1) if oratings else None,
+        "orating_best": max(oratings) if oratings else None,
+        "form": [{"jornada": p["jornada"], "oRating": p.get("oRating")} for p in sorted(mine, key=lambda x: x["jornada"])],
+    }
+    return {"name": name, "games": n, "stats": stats}
 
 
 @app.on_event("startup")
