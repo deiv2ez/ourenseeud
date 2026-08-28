@@ -87,3 +87,56 @@ def load_odds() -> dict:
             "home": row["c_home"], "draw": row["c_draw"], "away": row["c_away"],
         }
     return out
+
+
+# ---------------------------------------------------------------- match stats --
+STATS_TABLE = "match_stats"
+
+
+def save_stats(jornada: int, home: str, away: str,
+               stats_home: dict, stats_away: dict) -> bool:
+    """
+    Garda (upsert) as estatísticas dun partido (xG, tiros, posesión, etc.) como
+    dous JSON (local e visitante). Se Supabase non está activo, devolve False.
+    """
+    if not enabled():
+        return False
+    import json as _json
+    row = {
+        "jornada": jornada, "home": home, "away": away,
+        "stats_home": _json.dumps(stats_home), "stats_away": _json.dumps(stats_away),
+    }
+    url = f"{SUPABASE_URL}/rest/v1/{STATS_TABLE}"
+    headers = {**_headers(), "Prefer": "resolution=merge-duplicates,return=minimal"}
+    with httpx.Client(timeout=15) as client:
+        r = client.post(url, json=[row], headers=headers)
+        r.raise_for_status()
+    return True
+
+
+def load_stats() -> list[dict]:
+    """
+    Le todas as estatísticas de partidos gardadas. Devolve unha lista de
+    {jornada, home, away, stats_home, stats_away}. Se non hai Supabase, [].
+    """
+    if not enabled():
+        return []
+    import json as _json
+    url = f"{SUPABASE_URL}/rest/v1/{STATS_TABLE}?select=jornada,home,away,stats_home,stats_away"
+    try:
+        with httpx.Client(timeout=15) as client:
+            r = client.get(url, headers=_headers())
+            r.raise_for_status()
+            data = r.json()
+    except Exception:
+        return []
+    out = []
+    for row in data:
+        try:
+            sh = _json.loads(row["stats_home"]) if isinstance(row["stats_home"], str) else row["stats_home"]
+            sa = _json.loads(row["stats_away"]) if isinstance(row["stats_away"], str) else row["stats_away"]
+        except Exception:
+            sh, sa = {}, {}
+        out.append({"jornada": row["jornada"], "home": row["home"],
+                    "away": row["away"], "stats_home": sh, "stats_away": sa})
+    return out

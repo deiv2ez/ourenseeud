@@ -536,6 +536,9 @@ def team_profile(slug: str):
             "is_home": is_home, "played": False, "date": m.get("date"),
         })
 
+    # --- capa de análise xG (descriptiva, non toca o motor) -----------------
+    xg_block = _team_xg_block(name, data, slug)
+
     return {
         "team": name, "slug": slug, "pos": pos[name],
         "pld": row["pld"], "w": row["w"], "d": row["d"], "l": row["l"],
@@ -545,6 +548,36 @@ def team_profile(slug: str):
         "style": model.team_style(data["played"]).get(name),
         "style_note": data.get("style_notes", {}).get(slug),  # nota cualitativa editable (admin)
         "next": next_match, "fixtures": fixtures,
+        "xg": xg_block,   # None se non hai estatísticas metidas
+    }
+
+
+# caché do análise Gemini por (slug, nº de partidos con stats) para non repetir
+# a chamada en cada visita. Renóvase cando entran novas estatísticas.
+_xg_cache: dict = {}
+
+def _team_xg_block(name: str, data: dict, slug: str) -> dict | None:
+    """
+    Constrúe o bloque de análise xG dun equipo: números agregados + texto (Gemini
+    ou fallback por umbrais). Cacheado. Devolve None se non hai estatísticas.
+    """
+    from . import odds_store, xg_analysis, gemini
+    stats_rows = odds_store.load_stats()
+    if not stats_rows:
+        return None
+    agg = xg_analysis.team_xg_stats(name, stats_rows, data["played"])
+    if not agg:
+        return None
+    cache_key = (slug, agg["matches"])
+    if cache_key in _xg_cache:
+        text = _xg_cache[cache_key]
+    else:
+        text = gemini.analyze_team(name, agg, lang="gl")  # None se non hai clave
+        _xg_cache[cache_key] = text
+    return {
+        "stats": agg,
+        "analysis": text,                                   # texto rico (Gemini) ou None
+        "insights": xg_analysis.fallback_insights(name, agg, lang="gl"),  # etiquetas sempre
     }
 
 
@@ -761,6 +794,74 @@ def admin_set_odds(payload: OddsUpload, user: dict = Depends(require_admin)):
     return {"ok": True, "by": user["username"], "jornada": payload.jornada,
             "updated": updated, "persisted": saved_remote,
             "storage": "supabase" if odds_store.enabled() else "local"}
+
+
+class StatEntry(BaseModel):
+    home: str
+    away: str
+    raw: str            # volcado cru do Web Scraper de Sofascore
+
+
+class StatsUpload(BaseModel):
+    jornada: int
+    entries: list[StatEntry]
+
+
+@app.get("/api/admin/previous-matches")
+def admin_previous_matches(user: dict = Depends(require_admin)):
+    """
+    Partidos da última xornada XOGADA (para meter as estatísticas xG). Se aínda non
+    hai partidos xogados, colle a primeira xornada do calendario como referencia.
+    Devolve tamén se xa hai stats gardadas para cada partido.
+    """
+    data = load()
+    from . import odds_store
+    stats_rows = odds_store.load_stats()
+    have = {(s["home"], s["away"]) for s in stats_rows}
+    if data["played"]:
+        j = max(m["jornada"] for m in data["played"])
+        src = [m for m in data["played"] if m["jornada"] == j]
+    else:
+        # sen partidos xogados: amosamos a primeira xornada do calendario como guía
+        j = min((m["jornada"] for m in data["remaining"]), default=None)
+        src = [m for m in data["remaining"] if m["jornada"] == j]
+    matches = [{
+        "home": m["home"], "away": m["away"],
+        "home_slug": SLUG_BY_NAME[m["home"]], "away_slug": SLUG_BY_NAME[m["away"]],
+        "has_stats": (m["home"], m["away"]) in have,
+    } for m in src]
+    return {"jornada": j, "matches": matches}
+
+
+@app.post("/api/admin/stats")
+def admin_set_stats(payload: StatsUpload, user: dict = Depends(require_admin)):
+    """
+    Recibe volcados crus de Sofascore por partido, PARSÉAOS e garda as estatísticas
+    (xG, tiros, posesión...) en Supabase. Non toca o motor de predición: é capa de
+    análise. Só admin.
+    """
+    from . import odds_store
+    from .sofascore_parser import parse_match
+    saved = 0
+    parsed_out = []
+    for e in payload.entries:
+        if not e.raw or not e.raw.strip():
+            continue
+        parsed = parse_match(e.raw)
+        if not parsed["home"] or "xg" not in parsed["home"]:
+            continue   # sen xG útil, ignoramos
+        try:
+            ok = odds_store.save_stats(payload.jornada, e.home, e.away,
+                                       parsed["home"], parsed["away"])
+            if ok:
+                saved += 1
+        except Exception as exc:
+            raise HTTPException(502, f"Erro gardando stats en Supabase: {exc}")
+        parsed_out.append({"home": e.home, "away": e.away,
+                           "xg": [parsed["home"].get("xg"), parsed["away"].get("xg")]})
+    return {"ok": True, "by": user["username"], "jornada": payload.jornada,
+            "saved": saved, "parsed": parsed_out,
+            "storage": "supabase" if odds_store.enabled() else "sen persistencia (configura Supabase)"}
 
 
 @app.on_event("startup")
