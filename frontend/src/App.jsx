@@ -59,6 +59,12 @@ const I18N = {
     tpHomePerf: "Local", tpAwayPerf: "Visitante", tpStyleNote: "Nota de estilo (prensa)",
     tpXgTitle: "Rendemento xG", tpXgMatches: "partidos con estatísticas", tpXgFor: "Ataque",
     tpXgAgainst: "Defensa", tpXgGoals: "Goles", tpXgForShort: "a favor", tpXgAgainstShort: "en contra",
+    signing: "Obxectivo", games: "Partidos",
+    pdGoals: "Goles", pdAssists: "Asistencias", pdGA: "G+A", pdGoals90: "Goles/90",
+    pdAssists90: "Asist./90", pdGA90: "G+A/90", pdMinGoal: "Min/gol", pdMinutes: "Minutos",
+    pdPassPct: "% pases", pdPassPg: "Pases/part.", pdDuels: "% duelos gañ.", pdDuelsPg: "Duelos/part.",
+    pdTackles: "Entradas/part.", pdORavg: "oRating medio", pdORbest: "Mellor oRating",
+    pdGames: "partidos", pdMin: "min", pdNoData: "Aínda non hai estatísticas deste xogador.",
     anMerited: "Táboa merecida", anProjection: "Proxección", anObjectives: "Que precisa a UDO", anCompare: "Comparador",
     anMeritedSub: "Clasificación por puntos MERECIDOS (oPts) en vez dos reais.",
     anProjSub: "Onde acabará cada equipo segundo o modelo (posición media e rango).",
@@ -101,6 +107,12 @@ const I18N = {
     tpHomePerf: "Local", tpAwayPerf: "Visitante", tpStyleNote: "Nota de estilo (prensa)",
     tpXgTitle: "Rendimiento xG", tpXgMatches: "partidos con estadísticas", tpXgFor: "Ataque",
     tpXgAgainst: "Defensa", tpXgGoals: "Goles", tpXgForShort: "a favor", tpXgAgainstShort: "en contra",
+    signing: "Objetivo", games: "Partidos",
+    pdGoals: "Goles", pdAssists: "Asistencias", pdGA: "G+A", pdGoals90: "Goles/90",
+    pdAssists90: "Asist./90", pdGA90: "G+A/90", pdMinGoal: "Min/gol", pdMinutes: "Minutos",
+    pdPassPct: "% pases", pdPassPg: "Pases/part.", pdDuels: "% duelos gan.", pdDuelsPg: "Duelos/part.",
+    pdTackles: "Entradas/part.", pdORavg: "oRating medio", pdORbest: "Mejor oRating",
+    pdGames: "partidos", pdMin: "min", pdNoData: "Aún no hay estadísticas de este jugador.",
     anMerited: "Tabla merecida", anProjection: "Proyección", anObjectives: "Qué necesita la UDO", anCompare: "Comparador",
     anMeritedSub: "Clasificación por puntos MERECIDOS (oPts) en vez de los reales.",
     anProjSub: "Dónde acabará cada equipo según el modelo (posición media y rango).",
@@ -389,16 +401,71 @@ function AdminPanel({ t, onExit }) {
   const [prevRows, setPrevRows] = useState([]);   // [{home,away,has_stats,raw}]
   const [ratingsRaw, setRatingsRaw] = useState(""); // volcado da plantilla UDO
   const [ratingsOut, setRatingsOut] = useState([]); // resultado dos oRatings
+  // Plantel (edición)
+  const [squad, setSquad] = useState([]);
+  const [newSigning, setNewSigning] = useState({ name: "", nick: "", dorsal: "", pos: "DEL", note: "" });
 
   const doLogin = async () => {
     setErr(""); setBusy(true);
     try {
       const r = await api.login(user.trim(), pass);
       setToken(r.token);
-      await Promise.all([loadNext(r.token), loadPrev(r.token)]);
+      await Promise.all([loadNext(r.token), loadPrev(r.token), loadSquad(r.token)]);
     } catch {
       setErr("Usuario ou contrasinal incorrectos.");
     } finally { setBusy(false); }
+  };
+
+  const loadSquad = async (tk) => {
+    try {
+      const sq = await api.adminGetSquad(tk);
+      setSquad((sq || []).map((p) => ({
+        name: p.name, nick: p.nick || "", dorsal: p.dorsal ?? "",
+        pos: p.pos || "", note: p.note || "", signing: !!p.signing,
+        oRating: p.oRating,
+      })));
+    } catch { /* ignora */ }
+  };
+
+  const setSquadCell = (i, k, v) => setSquad((s) => s.map((p, j) => j === i ? { ...p, [k]: v } : p));
+
+  const saveSquad = async () => {
+    setMsg(""); setBusy(true);
+    try {
+      const players = squad.map((p) => ({
+        name: p.name, nick: p.nick || null,
+        dorsal: p.dorsal === "" ? null : parseInt(p.dorsal),
+        pos: p.pos || null, note: p.note || null, signing: p.signing,
+      }));
+      const res = await api.adminSaveSquad(token, players);
+      setMsg(`✓ Plantel gardado (${res.saved} xogadores). ${res.storage}`);
+    } catch {
+      setMsg("✗ Erro ao gardar o plantel.");
+    } finally { setBusy(false); }
+  };
+
+  const addSigning = async () => {
+    if (!newSigning.name.trim()) { setMsg("O fichaxe precisa polo menos un nome."); return; }
+    setMsg(""); setBusy(true);
+    try {
+      await api.adminSaveSquad(token, [{
+        name: newSigning.name.trim(), nick: newSigning.nick || null,
+        dorsal: newSigning.dorsal === "" ? null : parseInt(newSigning.dorsal),
+        pos: newSigning.pos, note: newSigning.note || null, signing: true,
+      }]);
+      setNewSigning({ name: "", nick: "", dorsal: "", pos: "DEL", note: "" });
+      await loadSquad(token);
+      setMsg("✓ Fichaxe engadido.");
+    } catch {
+      setMsg("✗ Erro ao engadir o fichaxe.");
+    } finally { setBusy(false); }
+  };
+
+  const removeSigning = async (name) => {
+    setBusy(true);
+    try { await api.adminDeleteSigning(token, name); await loadSquad(token); setMsg("✓ Fichaxe borrado."); }
+    catch { setMsg("✗ Erro ao borrar."); }
+    finally { setBusy(false); }
   };
 
   const loadNext = async (tk) => {
@@ -495,7 +562,7 @@ function AdminPanel({ t, onExit }) {
     );
   }
 
-  const TABS = [["prev", "Anterior"], ["next", "Seguinte"], ["settings", "Axustes"]];
+  const TABS = [["prev", "Anterior"], ["next", "Seguinte"], ["squad", "Plantel"], ["settings", "Axustes"]];
 
   return (
     <div className="app-shell bg-neutral-50">
@@ -604,6 +671,71 @@ function AdminPanel({ t, onExit }) {
             <button onClick={saveOdds} disabled={busy}
               className="mt-4 w-full rounded-lg py-3 text-sm font-bold text-white disabled:opacity-50"
               style={{ backgroundColor: RED }}>{busy ? "Gardando…" : "Gardar e recalcular"}</button>
+          </>
+        )}
+
+        {/* ---- PLANTEL: editar apodo, dorsal, posición, nota + fichaxes ---- */}
+        {tab === "squad" && (
+          <>
+            <h2 className="mb-1 text-sm font-bold">Plantel</h2>
+            <p className="mb-4 text-xs text-neutral-500">
+              O nome de Sofascore é a referencia interna (non se toca). Podes poñer un apodo
+              (o que se ve no frontend), dorsal, demarcación e unha frase curta. Tamén engadir
+              fichaxes.
+            </p>
+            <div className="space-y-2">
+              {squad.map((p, i) => (
+                <div key={p.name} className="rounded-lg border border-neutral-200 bg-white p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs text-neutral-400">{p.name}{p.signing && <span className="ml-1 rounded bg-amber-100 px-1 text-[9px] font-bold text-amber-700">FICHAXE</span>}</span>
+                    {p.oRating != null && <span className="text-xs font-bold tabular-nums">{p.oRating.toFixed(1)}</span>}
+                  </div>
+                  <div className="grid grid-cols-[1fr_54px_70px] gap-2">
+                    <input value={p.nick} onChange={(e) => setSquadCell(i, "nick", e.target.value)}
+                      placeholder="Apodo (frontend)" className="rounded-md border border-neutral-300 px-2 py-1.5 text-sm" />
+                    <input inputMode="numeric" value={p.dorsal} onChange={(e) => setSquadCell(i, "dorsal", e.target.value)}
+                      placeholder="Nº" className="rounded-md border border-neutral-300 px-2 py-1.5 text-sm tabular-nums" />
+                    <select value={p.pos} onChange={(e) => setSquadCell(i, "pos", e.target.value)}
+                      className="rounded-md border border-neutral-300 px-1 py-1.5 text-sm">
+                      {["GK", "DEF", "MED", "DEL"].map((o) => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  </div>
+                  <input value={p.note} onChange={(e) => setSquadCell(i, "note", e.target.value)}
+                    placeholder="Frase ou adxectivo curto (opcional)" className="mt-2 w-full rounded-md border border-neutral-300 px-2 py-1.5 text-xs" />
+                  {p.signing && (
+                    <button onClick={() => removeSigning(p.name)} className="mt-2 text-[11px] text-red-500">Borrar fichaxe</button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* engadir fichaxe */}
+            <div className="mt-4 rounded-lg border border-dashed border-neutral-300 bg-white p-3">
+              <h3 className="mb-2 text-xs font-bold uppercase text-neutral-500">Engadir fichaxe / obxectivo</h3>
+              <div className="grid grid-cols-[1fr_54px_70px] gap-2">
+                <input value={newSigning.name} onChange={(e) => setNewSigning((s) => ({ ...s, name: e.target.value }))}
+                  placeholder="Nome (Sofascore)" className="rounded-md border border-neutral-300 px-2 py-1.5 text-sm" />
+                <input inputMode="numeric" value={newSigning.dorsal} onChange={(e) => setNewSigning((s) => ({ ...s, dorsal: e.target.value }))}
+                  placeholder="Nº" className="rounded-md border border-neutral-300 px-2 py-1.5 text-sm tabular-nums" />
+                <select value={newSigning.pos} onChange={(e) => setNewSigning((s) => ({ ...s, pos: e.target.value }))}
+                  className="rounded-md border border-neutral-300 px-1 py-1.5 text-sm">
+                  {["GK", "DEF", "MED", "DEL"].map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+              <input value={newSigning.nick} onChange={(e) => setNewSigning((s) => ({ ...s, nick: e.target.value }))}
+                placeholder="Apodo (opcional)" className="mt-2 w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm" />
+              <input value={newSigning.note} onChange={(e) => setNewSigning((s) => ({ ...s, note: e.target.value }))}
+                placeholder="Frase ou adxectivo (opcional)" className="mt-2 w-full rounded-md border border-neutral-300 px-2 py-1.5 text-xs" />
+              <button onClick={addSigning} disabled={busy}
+                className="mt-3 w-full rounded-lg border border-neutral-800 bg-neutral-800 py-2 text-sm font-bold text-white disabled:opacity-50">
+                + Engadir
+              </button>
+            </div>
+
+            {msg && <p className="mt-3 text-sm font-medium" style={{ color: msg.startsWith("✓") ? "#1a8a4a" : "#c0392b" }}>{msg}</p>}
+            <button onClick={saveSquad} disabled={busy}
+              className="mt-4 w-full rounded-lg py-3 text-sm font-bold text-white disabled:opacity-50"
+              style={{ backgroundColor: RED }}>{busy ? "Gardando…" : "Gardar cambios do plantel"}</button>
           </>
         )}
 
@@ -719,11 +851,16 @@ function TeamProfile({ t, slug, onBack }) {
               </>); })()}
             </div>
             <div className="flex h-6 overflow-hidden rounded text-[10px] font-bold text-white">
-              <div className="grid place-items-center" style={{ width: `${d.next.p_win}%`, backgroundColor: "#1a8a4a" }}>{d.next.p_win >= 12 ? `${d.next.p_win}%` : ""}</div>
-              <div className="grid place-items-center" style={{ width: `${d.next.p_draw}%`, backgroundColor: "#9a9a9a" }}>{d.next.p_draw >= 12 ? `${d.next.p_draw}%` : ""}</div>
-              <div className="grid place-items-center" style={{ width: `${d.next.p_loss}%`, backgroundColor: "#c0392b" }}>{d.next.p_loss >= 12 ? `${d.next.p_loss}%` : ""}</div>
+              <div className="grid place-items-center" style={{ width: `${d.next.p_home}%`, backgroundColor: "#1a8a4a" }} title={`1: ${d.next.p_home}%`}>{d.next.p_home >= 12 ? `${d.next.p_home}%` : ""}</div>
+              <div className="grid place-items-center" style={{ width: `${d.next.p_draw}%`, backgroundColor: "#9a9a9a" }} title={`X: ${d.next.p_draw}%`}>{d.next.p_draw >= 12 ? `${d.next.p_draw}%` : ""}</div>
+              <div className="grid place-items-center" style={{ width: `${d.next.p_away}%`, backgroundColor: "#c0392b" }} title={`2: ${d.next.p_away}%`}>{d.next.p_away >= 12 ? `${d.next.p_away}%` : ""}</div>
             </div>
-            <div className="mt-1 text-center text-[10px] text-neutral-400">{d.next.is_home ? t.tpHome : t.tpAway} · oG {d.next.oGoals_home}-{d.next.oGoals_away}</div>
+            <div className="mt-1 flex justify-between text-[9px] uppercase text-neutral-400">
+              <span>1 · {t.tpHome}</span>
+              <span>X</span>
+              <span>{t.tpAway} · 2</span>
+            </div>
+            <div className="mt-1 text-center text-[10px] text-neutral-400">oG {d.next.oGoals_home}-{d.next.oGoals_away}</div>
           </section>
         )}
 
@@ -1594,9 +1731,78 @@ function EvoChart({ evo }) {
 }
 
 /* ============================================================== PLANTILLA == */
+/* Ficha de xogador: modal cos datos agregados (goles, asist, /90, duelos...). */
+function PlayerDetail({ t, name, onClose }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try { const r = await api.playerDetail(name); if (alive) setData(r); }
+      catch { if (alive) setData({ games: 0, stats: null }); }
+      finally { if (alive) setLoading(false); }
+    })();
+    return () => { alive = false; };
+  }, [name]);
+
+  const s = data?.stats;
+  const metrics = s ? [
+    [t.pdGoals || "Goles", s.goals],
+    [t.pdAssists || "Asistencias", s.assists],
+    [t.pdGA || "G+A", s.ga],
+    [t.pdGoals90 || "Goles/90", s.goals_per90],
+    [t.pdAssists90 || "Asist./90", s.assists_per90],
+    [t.pdGA90 || "G+A/90", s.ga_per90],
+    [t.pdMinGoal || "Min/gol", s.min_per_goal ?? "—"],
+    [t.pdMinutes || "Minutos", s.minutes],
+    [t.pdPassPct || "% pases", s.pass_pct != null ? `${s.pass_pct}%` : "—"],
+    [t.pdPassPg || "Pases/partido", s.passes_pg],
+    [t.pdDuels || "% duelos gañ.", s.duels_won_pct != null ? `${s.duels_won_pct}%` : "—"],
+    [t.pdDuelsPg || "Duelos gañ./part.", s.duels_won_pg],
+    [t.pdTackles || "Entradas/part.", s.tackles_pg],
+    [t.pdORavg || "oRating medio", s.orating_avg ?? "—"],
+    [t.pdORbest || "Mellor oRating", s.orating_best ?? "—"],
+  ] : [];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={onClose}>
+      <div className="max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-5 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-lg font-black">{name}</h3>
+          <button onClick={onClose} className="tap text-neutral-400">✕</button>
+        </div>
+        {loading ? <Loading text={t.loading} /> : !s ? (
+          <p className="py-8 text-center text-sm text-neutral-400">{t.pdNoData || "Aínda non hai estatísticas deste xogador."}</p>
+        ) : (
+          <>
+            <div className="mb-3 flex items-center gap-3">
+              <div className="grid h-14 w-14 place-items-center rounded-xl text-xl font-black text-white" style={{ backgroundColor: s.orating_avg >= 7 ? "#1a8a4a" : s.orating_avg < 5 ? "#c0392b" : "#c99700" }}>
+                {s.orating_avg != null ? s.orating_avg.toFixed(1) : "–"}
+              </div>
+              <div className="text-xs text-neutral-500">
+                <div><b>{s.games}</b> {t.pdGames || "partidos"}</div>
+                <div>{s.minutes} {t.pdMin || "min"}</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {metrics.map(([label, val]) => (
+                <div key={label} className="rounded-lg bg-neutral-50 px-3 py-2">
+                  <div className="text-[10px] uppercase text-neutral-400">{label}</div>
+                  <div className="text-base font-bold tabular-nums">{val}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Squad({ t }) {
   const [filter, setFilter] = useState("all");
   const [players, setPlayers] = useState(SQUAD);
+  const [selected, setSelected] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -1634,8 +1840,9 @@ function Squad({ t }) {
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {list.map((p) => (
-          <div key={p.name} className="relative overflow-hidden rounded-xl border border-neutral-200 bg-white p-3 transition hover:shadow-md">
-            <div className="absolute inset-x-0 top-0 h-1" style={{ backgroundColor: RED }} />
+          <div key={p.name} onClick={() => setSelected(p.name)}
+            className="tap relative cursor-pointer overflow-hidden rounded-xl border border-neutral-200 bg-white p-3 transition hover:shadow-md">
+            <div className="absolute inset-x-0 top-0 h-1" style={{ backgroundColor: p.signing ? "#e0a500" : RED }} />
             <div className="mb-2 flex items-start justify-between">
               <div className="flex items-baseline gap-1.5">
                 <span className="text-2xl font-black tabular-nums">{p.dorsal ?? "–"}</span>
@@ -1643,13 +1850,17 @@ function Squad({ t }) {
               </div>
               <span className="grid h-9 w-9 place-items-center rounded-lg text-sm font-black text-white" style={{ backgroundColor: rc(p.oR) }}>{p.oR != null ? p.oR.toFixed(1) : "–"}</span>
             </div>
-            <h4 className="truncate text-sm font-bold leading-tight">{p.name}</h4>
-            <div className="mt-0.5 text-xs text-neutral-500">{p.born ? `${2026 - p.born} ${t.years} · ` : ""}{p.nat}</div>
+            <h4 className="truncate text-sm font-bold leading-tight">{p.display || p.name}</h4>
+            <div className="mt-0.5 text-xs text-neutral-500">
+              {p.signing ? <span className="font-semibold text-amber-600">{t.signing || "Obxectivo"}</span> : <>{p.born ? `${2026 - p.born} ${t.years} · ` : ""}{p.nat}</>}
+            </div>
+            {p.note && <div className="mt-1.5 line-clamp-2 text-[11px] italic text-neutral-500">"{p.note}"</div>}
             {p.games > 0 && <div className="mt-2 border-t border-neutral-100 pt-1.5 text-xs"><span className="text-neutral-400">{t.games || "Partidos"}: </span><span className="font-semibold text-neutral-700">{p.games}</span></div>}
           </div>
         ))}
       </div>
       <p className="mt-4 text-xs text-neutral-400">{t.ratingHelp}</p>
+      {selected && <PlayerDetail t={t} name={selected} onClose={() => setSelected(null)} />}
     </div>
   );
 }
