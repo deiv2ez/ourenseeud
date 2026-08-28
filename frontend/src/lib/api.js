@@ -81,3 +81,10 @@ api.adminSetStats = (token, jornada, entries) =>
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify({ jornada, entries }),
   }).then((r) => { if (!r.ok) throw new Error("stats"); return r.json(); });
+
+api.adminSetRatings = (token, jornada, raw) =>
+  fetch(`${BASE}/api/admin/ratings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ jornada, raw }),
+  }).then((r) => { if (!r.ok) throw new Error("ratings"); return r.json(); });
