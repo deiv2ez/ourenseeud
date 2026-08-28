@@ -2,346 +2,169 @@
   {
     "name": "Manu Vizoso",
     "pos": "GK",
+    "pos_code": "G",
     "dorsal": 13,
-    "born": "2003-03-01",
-    "nat": "ES",
-    "mv": 100000,
-    "match_ratings": [
-      6.9,
-      5.9,
-      7.6,
-      6.6,
-      6.9,
-      6.9,
-      7.6,
-      6.6
-    ]
+    "nat": "ES"
   },
   {
     "name": "Bruno Rielo",
     "pos": "GK",
-    "dorsal": 4,
-    "born": "2004-08-12",
-    "nat": "ES",
-    "mv": 25000,
-    "match_ratings": [
-      6.1,
-      7.8,
-      6.6,
-      7.4,
-      6.6
-    ]
+    "pos_code": "G",
+    "dorsal": 1,
+    "nat": "ES"
   },
   {
-    "name": "Javi Labrada",
-    "pos": "DF",
-    "dorsal": 20,
-    "born": "2003-03-18",
-    "nat": "ES",
-    "mv": 100000,
-    "match_ratings": [
-      7.5,
-      6.1,
-      5.9
-    ]
-  },
-  {
-    "name": "Igor Irazu",
-    "pos": "DF",
-    "dorsal": 5,
-    "born": "2002-05-17",
-    "nat": "ES",
-    "mv": 50000,
-    "match_ratings": [
-      6.5,
-      5.6,
-      7.3,
-      6.0,
-      7.7
-    ]
-  },
-  {
-    "name": "Lucas Puime",
-    "pos": "DF",
-    "dorsal": null,
-    "born": "1993-08-27",
-    "nat": "ES",
-    "mv": 25000,
-    "match_ratings": [
-      6.3,
-      5.7,
-      7.5,
-      6.6,
-      7.2,
-      7.5,
-      7.2,
-      7.6
-    ]
-  },
-  {
-    "name": "Julio Cabrera",
-    "pos": "LI",
-    "dorsal": 15,
-    "born": "2003-08-14",
-    "nat": "ES",
-    "mv": 200000,
-    "match_ratings": [
-      7.2,
-      6.9,
-      7.7,
-      5.9,
-      6.4,
-      5.7
-    ]
-  },
-  {
-    "name": "Noel González",
-    "pos": "LD",
-    "dorsal": 19,
-    "born": "2005-01-11",
-    "nat": "ES",
-    "mv": 100000,
-    "match_ratings": [
-      6.1,
-      7.7,
-      6.6,
-      7.0,
-      6.3,
-      6.7
-    ]
-  },
-  {
-    "name": "Samuel Pardo",
-    "pos": "LD",
+    "name": "Xabier Dominguez",
+    "pos": "DEF",
+    "pos_code": "D",
     "dorsal": 2,
-    "born": "2001-04-29",
-    "nat": "ES",
-    "mv": 50000,
-    "match_ratings": [
-      6.9,
-      6.8,
-      6.5,
-      6.1,
-      6.3,
-      7.6
-    ]
-  },
-  {
-    "name": "Varo",
-    "pos": "LD",
-    "dorsal": null,
-    "born": "1997-07-08",
-    "nat": "ES",
-    "mv": 25000,
-    "match_ratings": [
-      7.5,
-      7.8,
-      7.1,
-      6.0,
-      7.5,
-      7.7,
-      7.6,
-      6.9
-    ]
-  },
-  {
-    "name": "Álvaro Bastida",
-    "pos": "MC",
-    "dorsal": null,
-    "born": "2004-05-12",
-    "nat": "ES",
-    "mv": 200000,
-    "match_ratings": [
-      7.0,
-      7.0,
-      7.8
-    ]
-  },
-  {
-    "name": "Curro Rivelott",
-    "pos": "MC",
-    "dorsal": 22,
-    "born": "1999-12-13",
-    "nat": "ES",
-    "mv": 150000,
-    "match_ratings": [
-      6.2,
-      5.7,
-      7.5,
-      7.8,
-      5.8,
-      7.4,
-      6.5,
-      5.9
-    ]
-  },
-  {
-    "name": "Diego Tejón",
-    "pos": "MC",
-    "dorsal": null,
-    "born": "2002-01-13",
-    "nat": "ES",
-    "mv": 150000,
-    "match_ratings": [
-      6.5,
-      6.5,
-      5.9,
-      6.9,
-      7.3,
-      6.4,
-      6.9,
-      6.8
-    ]
-  },
-  {
-    "name": "Viti Nieves",
-    "pos": "MC",
-    "dorsal": 23,
-    "born": "1994-09-03",
-    "nat": "VE",
-    "mv": 25000,
-    "match_ratings": [
-      6.7,
-      7.8,
-      6.3,
-      5.8,
-      6.9,
-      5.7,
-      6.0,
-      6.5
-    ]
-  },
-  {
-    "name": "Roi Currás",
-    "pos": "MC",
-    "dorsal": null,
-    "born": "2007-01-22",
-    "nat": "ES",
-    "mv": null,
-    "match_ratings": [
-      6.2,
-      7.1,
-      7.8,
-      6.3,
-      6.4
-    ]
-  },
-  {
-    "name": "Champi",
-    "pos": "MCO",
-    "dorsal": null,
-    "born": "1996-05-17",
-    "nat": "ES",
-    "mv": 50000,
-    "match_ratings": [
-      7.6,
-      6.4,
-      6.6,
-      6.7,
-      7.0,
-      6.9,
-      6.8,
-      7.0
-    ]
-  },
-  {
-    "name": "David Ferreiro",
-    "pos": "EI",
-    "dorsal": 21,
-    "born": "1988-04-01",
-    "nat": "ES",
-    "mv": 50000,
-    "match_ratings": []
-  },
-  {
-    "name": "Valen Jaichenko",
-    "pos": "EI",
-    "dorsal": null,
-    "born": "2002-04-14",
-    "nat": "AR",
-    "mv": 25000,
-    "match_ratings": [
-      6.2,
-      7.0,
-      7.2,
-      7.7,
-      6.6
-    ]
-  },
-  {
-    "name": "Mateo Gandarillas",
-    "pos": "ED",
-    "dorsal": null,
-    "born": "2001-01-20",
-    "nat": "ES",
-    "mv": 150000,
-    "match_ratings": [
-      6.7,
-      6.8,
-      5.6,
-      6.5,
-      6.9,
-      5.6,
-      7.0,
-      7.0
-    ]
-  },
-  {
-    "name": "Xabi Domínguez",
-    "pos": "ED",
-    "dorsal": null,
-    "born": "2002-08-31",
-    "nat": "ES",
-    "mv": 50000,
-    "match_ratings": [
-      7.0,
-      6.3,
-      6.4,
-      7.6,
-      6.9,
-      6.2,
-      6.7,
-      6.9
-    ]
-  },
-  {
-    "name": "Cristian Carro",
-    "pos": "ED",
-    "dorsal": 15,
-    "born": "2007-09-29",
-    "nat": "ES",
-    "mv": null,
-    "match_ratings": [
-      5.6,
-      6.4,
-      7.0
-    ]
+    "nat": "ES"
   },
   {
     "name": "Sergi Baldrich",
-    "pos": "DC",
-    "dorsal": 9,
-    "born": "2003-05-20",
-    "nat": "ES",
-    "mv": 150000,
-    "match_ratings": [
-      6.9,
-      6.3,
-      6.4,
-      6.3,
-      6.4,
-      6.9,
-      6.3,
-      6.4
-    ]
+    "pos": "DEF",
+    "pos_code": "D",
+    "dorsal": 3,
+    "nat": "ES"
   },
   {
-    "name": "Rufo Sánchez",
-    "pos": "DC",
-    "dorsal": null,
-    "born": "1986-12-27",
-    "nat": "ES",
-    "mv": 25000,
-    "match_ratings": []
+    "name": "Valentin Jaichenko Francalancia",
+    "pos": "DEF",
+    "pos_code": "D",
+    "dorsal": 5,
+    "nat": "ES"
+  },
+  {
+    "name": "Mateo Gandarillas",
+    "pos": "DEF",
+    "pos_code": "D",
+    "dorsal": 6,
+    "nat": "ES"
+  },
+  {
+    "name": "Cristian Carro Arceo",
+    "pos": "DEF",
+    "pos_code": "D",
+    "dorsal": 4,
+    "nat": "ES"
+  },
+  {
+    "name": "Víctor Nieves",
+    "pos": "DEF",
+    "pos_code": "D",
+    "dorsal": 15,
+    "nat": "ES"
+  },
+  {
+    "name": "Diego Tejon Naves",
+    "pos": "DEF",
+    "pos_code": "D",
+    "dorsal": 12,
+    "nat": "ES"
+  },
+  {
+    "name": "Igor Irazu",
+    "pos": "DEF",
+    "pos_code": "D",
+    "dorsal": 24,
+    "nat": "ES"
+  },
+  {
+    "name": "Álvaro Fernández",
+    "pos": "DEF",
+    "pos_code": "D",
+    "dorsal": 23,
+    "nat": "ES"
+  },
+  {
+    "name": "David Ferreiro",
+    "pos": "MED",
+    "pos_code": "M",
+    "dorsal": 8,
+    "nat": "ES"
+  },
+  {
+    "name": "Álvaro Bastida",
+    "pos": "MED",
+    "pos_code": "M",
+    "dorsal": 10,
+    "nat": "ES"
+  },
+  {
+    "name": "Curro Rivelott",
+    "pos": "MED",
+    "pos_code": "M",
+    "dorsal": 14,
+    "nat": "ES"
+  },
+  {
+    "name": "Champi",
+    "pos": "MED",
+    "pos_code": "M",
+    "dorsal": 16,
+    "nat": "ES"
+  },
+  {
+    "name": "Julio Cabrera",
+    "pos": "MED",
+    "pos_code": "M",
+    "dorsal": 18,
+    "nat": "ES"
+  },
+  {
+    "name": "Javi Labrada",
+    "pos": "MED",
+    "pos_code": "M",
+    "dorsal": 20,
+    "nat": "ES"
+  },
+  {
+    "name": "Noel González Cabanas",
+    "pos": "MED",
+    "pos_code": "M",
+    "dorsal": 21,
+    "nat": "ES"
+  },
+  {
+    "name": "Lucas Fernández",
+    "pos": "MED",
+    "pos_code": "M",
+    "dorsal": 17,
+    "nat": "ES"
+  },
+  {
+    "name": "Samuel Rodríguez",
+    "pos": "MED",
+    "pos_code": "M",
+    "dorsal": 22,
+    "nat": "ES"
+  },
+  {
+    "name": "Rufo",
+    "pos": "DEL",
+    "pos_code": "F",
+    "dorsal": 9,
+    "nat": "ES"
+  },
+  {
+    "name": "Roi Currás",
+    "pos": "DEL",
+    "pos_code": "F",
+    "dorsal": 7,
+    "nat": "ES"
+  },
+  {
+    "name": "Noel González",
+    "pos": "DEL",
+    "pos_code": "F",
+    "dorsal": 11,
+    "nat": "ES"
+  },
+  {
+    "name": "Daniel Domínguez",
+    "pos": "DEL",
+    "pos_code": "F",
+    "dorsal": 19,
+    "nat": "ES"
   }
 ]
