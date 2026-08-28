@@ -69,3 +69,15 @@ api.adminReload = (token) =>
   fetch(`${BASE}/api/admin/reload`, {
     method: "POST", headers: { Authorization: `Bearer ${token}` },
   }).then((r) => { if (!r.ok) throw new Error("reload"); return r.json(); });
+
+api.adminPreviousMatches = (token) =>
+  fetch(`${BASE}/api/admin/previous-matches`, {
+    headers: { Authorization: `Bearer ${token}` },
+  }).then((r) => { if (!r.ok) throw new Error("auth"); return r.json(); });
+
+api.adminSetStats = (token, jornada, entries) =>
+  fetch(`${BASE}/api/admin/stats`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ jornada, entries }),
+  }).then((r) => { if (!r.ok) throw new Error("stats"); return r.json(); });
