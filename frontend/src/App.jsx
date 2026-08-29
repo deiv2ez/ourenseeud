@@ -50,7 +50,7 @@ const I18N = {
     squadTitle: "Plantilla", all: "Todos", gk: "Porteiros", df: "Defensas", mf: "Medios", fw: "Dianteiros",
     rating: "oRating", value: "Valor", years: "anos",
     ratingHelp: "oRating: nota propia de rendemento (media da tempada), con datos reais.",
-    mockNote: "Datos simulados para ver a estética · a liga real arranca a cero o 30/08/2026",
+    mockNote: "O noso fútbol a través dos datos · modelo predictivo de eficiencia contextual",
     mdTitle: "Previa da xornada", mdSub: "Predición do modelo para cada partido",
     mdExpected: "Resultado esperado", mdProb: "Probabilidades", mdNoData: "Aínda non hai xornada dispoñible.", loading: "Cargando datos…", loadErr: "Non se puideron cargar os datos. Proba a recargar.",
     tpBack: "← Volver á clasificación", tpNext: "Próximo partido", tpCalendar: "Calendario",
@@ -98,7 +98,7 @@ const I18N = {
     squadTitle: "Plantilla", all: "Todos", gk: "Porteros", df: "Defensas", mf: "Medios", fw: "Delanteros",
     rating: "oRating", value: "Valor", years: "años",
     ratingHelp: "oRating: nota propia de rendimiento (media de temporada), con datos reales.",
-    mockNote: "Datos simulados para ver la estética · la liga real arranca a cero el 30/08/2026",
+    mockNote: "O noso fútbol a través dos datos · modelo predictivo de eficiencia contextual",
     mdTitle: "Previa de la jornada", mdSub: "Predicción del modelo para cada partido",
     mdExpected: "Resultado esperado", mdProb: "Probabilidades", mdNoData: "Aún no hay jornada disponible.", loading: "Cargando datos…", loadErr: "No se pudieron cargar los datos. Prueba a recargar.",
     tpBack: "← Volver a la clasificación", tpNext: "Próximo partido", tpCalendar: "Calendario",
@@ -401,6 +401,7 @@ function AdminPanel({ t, onExit }) {
   const [prevRows, setPrevRows] = useState([]);   // [{home,away,has_stats,raw}]
   const [ratingsRaw, setRatingsRaw] = useState(""); // volcado da plantilla UDO
   const [ratingsOut, setRatingsOut] = useState([]); // resultado dos oRatings
+  const [udoMatch, setUdoMatch] = useState(null);   // último partido real da UDO
   // Plantel (edición)
   const [squad, setSquad] = useState([]);
   const [newSigning, setNewSigning] = useState({ name: "", nick: "", dorsal: "", pos: "DEL", note: "" });
@@ -531,6 +532,7 @@ function AdminPanel({ t, onExit }) {
     const pm = await api.adminPreviousMatches(tk);
     setPrevJornada(pm.jornada);
     setPrevRows((pm.matches || []).map((m) => ({ ...m, raw: "" })));
+    try { setUdoMatch(await api.adminUdoLastMatch(tk)); } catch { /* ignora */ }
   };
 
   const setCell = (i, k, v) => setRows((rs) => rs.map((r, j) => j === i ? { ...r, [k]: v } : r));
@@ -541,10 +543,11 @@ function AdminPanel({ t, onExit }) {
     try {
       const entries = rows
         .filter((r) => r.c_home && r.c_draw && r.c_away)
-        .map((r) => ({ home: r.home, away: r.away,
+        .map((r) => ({ home: r.home, away: r.away, jornada: r.jornada,
           c_home: parseFloat(r.c_home), c_draw: parseFloat(r.c_draw), c_away: parseFloat(r.c_away) }));
+      if (!entries.length) { setMsg("Mete algunha cuota antes de gardar."); setBusy(false); return; }
       const res = await api.adminSetOdds(token, jornada, entries);
-      setMsg(`✓ Gardadas ${res.updated} cuotas da xornada ${jornada}. Recalculado. (${res.storage})`);
+      setMsg(`✓ Gardadas ${res.updated} cuotas. Recalculado. (${res.storage})`);
     } catch {
       setMsg("✗ Erro ao gardar as cuotas.");
     } finally { setBusy(false); }
@@ -570,9 +573,12 @@ function AdminPanel({ t, onExit }) {
     setMsg(""); setBusy(true); setRatingsOut([]);
     try {
       if (!ratingsRaw.trim()) { setMsg("Pega o volcado das estatísticas dos xogadores da UDO."); setBusy(false); return; }
-      const res = await api.adminSetRatings(token, prevJornada, ratingsRaw);
+      // usar a xornada do ÚLTIMO partido real da UDO (non unha xornada abstracta)
+      let j = udoMatch?.jornada ?? prevJornada;
+      const res = await api.adminSetRatings(token, j, ratingsRaw);
       setRatingsOut(res.ratings || []);
-      setMsg(`✓ Calculados ${res.count} oRatings da xornada ${prevJornada} (${res.storage}).`);
+      const ctx = udoMatch?.rival ? ` (partido vs ${udoMatch.rival})` : "";
+      setMsg(`✓ Calculados ${res.count} oRatings da xornada ${j}${ctx} (${res.storage}).`);
     } catch {
       setMsg("✗ Erro ao calcular os oRatings. Revisa o formato do volcado.");
     } finally { setBusy(false); }
@@ -665,10 +671,15 @@ function AdminPanel({ t, onExit }) {
             {/* oRatings da plantilla da UDO */}
             <div className="mt-8 border-t border-neutral-200 pt-5">
               <h2 className="mb-1 text-sm font-bold">oRating · plantilla UD Ourense</h2>
-              <p className="mb-3 text-xs text-neutral-500">
+              <p className="mb-2 text-xs text-neutral-500">
                 Pega o volcado das estatísticas dos xogadores da UDO (páxina de player stats de
-                Sofascore). Calcúlase o oRating de cada un e gárdase para a plantilla.
+                Sofascore). Calcúlase o oRating de cada un e gárdase.
               </p>
+              {udoMatch && udoMatch.played && (
+                <div className="mb-3 rounded-md bg-neutral-100 px-3 py-2 text-xs text-neutral-600">
+                  Asígnase ao último partido da UDO: <b>J{udoMatch.jornada}</b> · {udoMatch.home} {udoMatch.score?.[0]}-{udoMatch.score?.[1]} {udoMatch.away}
+                </div>
+              )}
               <textarea value={ratingsRaw} onChange={(e) => setRatingsRaw(e.target.value)}
                 rows={4} placeholder="Pega aquí o volcado dos xogadores da UD Ourense…"
                 className="w-full resize-y rounded-md border border-neutral-300 px-2 py-1.5 text-xs font-mono" />
@@ -693,17 +704,22 @@ function AdminPanel({ t, onExit }) {
         {/* ---- SEGUINTE: cuotas da próxima xornada ---- */}
         {tab === "next" && (
           <>
-            <h2 className="mb-1 text-sm font-bold">Cuotas · Xornada {jornada}</h2>
+            <h2 className="mb-1 text-sm font-bold">Cuotas · próximos partidos</h2>
             <p className="mb-4 text-xs text-neutral-500">
-              Mete as cuotas decimais 1-X-2 (de betexplorer). Ao gardar, actualízanse todas as
-              predicións e córrense as simulacións. Deixa en branco os partidos sen cuota.
+              Mete as cuotas decimais 1-X-2 (de betexplorer) dos próximos partidos. Cada un
+              leva a súa xornada (poden estar mesturadas por aprazamentos). Ao gardar,
+              recalcúlanse as predicións. Deixa en branco os que non teñan cuota.
             </p>
             <div className="space-y-2">
               {rows.map((r, i) => {
                 const th = T[NAME_TO_KEY[r.home]] || { n: r.home };
                 const ta = T[NAME_TO_KEY[r.away]] || { n: r.away };
                 return (
-                  <div key={i} className="rounded-lg border border-neutral-200 bg-white p-3">
+                  <div key={i} className={`rounded-lg border bg-white p-3 ${r.postponed ? "border-amber-300" : "border-neutral-200"}`}>
+                    <div className="mb-1 flex items-center justify-between text-[10px] text-neutral-400">
+                      <span>J{r.jornada}{r.postponed && <span className="ml-1 font-bold text-amber-600">· aprazado</span>}</span>
+                      <span>{r.date || ""}</span>
+                    </div>
                     <div className="mb-2 text-sm font-semibold">{th.n} <span className="text-neutral-400">vs</span> {ta.n}</div>
                     <div className="grid grid-cols-3 gap-2">
                       {[["c_home", "1"], ["c_draw", "X"], ["c_away", "2"]].map(([k, label]) => (
