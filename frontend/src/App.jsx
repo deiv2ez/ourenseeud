@@ -404,13 +404,19 @@ function AdminPanel({ t, onExit }) {
   // Plantel (edición)
   const [squad, setSquad] = useState([]);
   const [newSigning, setNewSigning] = useState({ name: "", nick: "", dorsal: "", pos: "DEL", note: "" });
+  // Resultados (por partido)
+  const [matches, setMatches] = useState(null);
+  const [scoreInputs, setScoreInputs] = useState({});   // {key: {hg,ag}}
 
   const doLogin = async () => {
     setErr(""); setBusy(true);
+    let ok = false;
     try {
       const r = await api.login(user.trim(), pass);
       setToken(r.token);
-      await Promise.all([loadNext(r.token), loadPrev(r.token), loadSquad(r.token)]);
+      ok = true;
+      // as cargas de datos NON deben tirar o login se algunha falla
+      Promise.allSettled([loadNext(r.token), loadPrev(r.token), loadSquad(r.token), loadMatches(r.token)]);
     } catch {
       setErr("Usuario ou contrasinal incorrectos.");
     } finally { setBusy(false); }
@@ -466,6 +472,51 @@ function AdminPanel({ t, onExit }) {
     try { await api.adminDeleteSigning(token, name); await loadSquad(token); setMsg("✓ Fichaxe borrado."); }
     catch { setMsg("✗ Erro ao borrar."); }
     finally { setBusy(false); }
+  };
+
+  const loadMatches = async (tk) => {
+    try { setMatches(await api.adminListMatches(tk)); }
+    catch { setMatches({ pending: [], played: [], postponed: [], counts: {} }); }
+  };
+
+  const mkey = (m) => `${m.jornada}|${m.home}|${m.away}`;
+
+  const setScore = (m, field, val) => {
+    const k = mkey(m);
+    setScoreInputs((s) => ({ ...s, [k]: { ...s[k], [field]: val.replace(/[^0-9]/g, "") } }));
+  };
+
+  const saveResult = async (m, status) => {
+    setMsg(""); setBusy(true);
+    try {
+      const k = mkey(m);
+      const inp = scoreInputs[k] || {};
+      const entry = { jornada: m.jornada, home: m.home, away: m.away, status };
+      if (status === "played") {
+        if (inp.hg === undefined || inp.hg === "" || inp.ag === undefined || inp.ag === "") {
+          setMsg("✗ Mete os dous goles."); setBusy(false); return;
+        }
+        entry.hg = parseInt(inp.hg); entry.ag = parseInt(inp.ag);
+      }
+      await api.adminSetResult(token, entry);
+      setMsg(status === "postponed" ? "✓ Partido marcado como aprazado."
+           : status === "pending" ? "✓ Partido devolto a pendente."
+           : `✓ Resultado gardado: ${m.home} ${entry.hg}-${entry.ag} ${m.away}.`);
+      await loadMatches(token);
+    } catch (e) {
+      setMsg(`✗ ${String(e.message || "Erro ao gardar o resultado.")}`);
+    } finally { setBusy(false); }
+  };
+
+  const reloadApi = async () => {
+    setMsg(""); setBusy(true);
+    try {
+      const r = await api.adminReload(token);
+      setMsg((r.ok ? "✓ " : "⚠ ") + (r.message || (r.ok ? "Actualizado." : "Non se puido actualizar.")));
+      if (r.ok) await loadMatches(token);
+    } catch {
+      setMsg("✗ Erro ao contactar coa API. Podes meter os resultados a man.");
+    } finally { setBusy(false); }
   };
 
   const loadNext = async (tk) => {
@@ -562,7 +613,7 @@ function AdminPanel({ t, onExit }) {
     );
   }
 
-  const TABS = [["prev", "Anterior"], ["next", "Seguinte"], ["squad", "Plantel"], ["settings", "Axustes"]];
+  const TABS = [["prev", "Anterior"], ["next", "Seguinte"], ["results", "Resultados"], ["squad", "Plantel"], ["settings", "Axustes"]];
 
   return (
     <div className="app-shell bg-neutral-50">
@@ -671,6 +722,113 @@ function AdminPanel({ t, onExit }) {
             <button onClick={saveOdds} disabled={busy}
               className="mt-4 w-full rounded-lg py-3 text-sm font-bold text-white disabled:opacity-50"
               style={{ backgroundColor: RED }}>{busy ? "Gardando…" : "Gardar e recalcular"}</button>
+          </>
+        )}
+
+        {/* ---- RESULTADOS: xestión partido a partido (aprazamentos incluídos) ---- */}
+        {tab === "results" && (
+          <>
+            <h2 className="mb-1 text-sm font-bold">Resultados</h2>
+            <p className="mb-3 text-xs text-neutral-500">
+              Mete o resultado de cada partido cando se xogue, na orde que sexa. Se un se
+              apraza, márcao como <b>aprazado</b> e metes o resultado cando toque. Nada
+              depende de "pasar de xornada": cada partido é independente.
+            </p>
+            <button onClick={reloadApi} disabled={busy}
+              className="tap mb-4 w-full rounded-lg border border-neutral-300 py-2.5 text-sm font-semibold text-neutral-700 disabled:opacity-50">
+              {busy ? "Actualizando…" : "↻ Probar actualización automática (API)"}
+            </button>
+            {msg && <p className="mb-3 text-sm font-medium" style={{ color: msg.startsWith("✓") ? "#1a8a4a" : msg.startsWith("⚠") ? "#c99700" : "#c0392b" }}>{msg}</p>}
+
+            {matches === null ? <Loading text={t.loading} /> : (
+              <>
+                <h3 className="mb-2 text-xs font-bold uppercase text-neutral-500">
+                  Pendentes {matches.counts?.pending ? `(${matches.counts.pending})` : ""}
+                </h3>
+                <div className="space-y-2">
+                  {matches.pending.map((m) => {
+                    const k = `${m.jornada}|${m.home}|${m.away}`;
+                    const inp = scoreInputs[k] || {};
+                    return (
+                      <div key={k} className="rounded-lg border border-neutral-200 bg-white p-2.5">
+                        <div className="mb-1.5 flex items-center justify-between text-[10px] text-neutral-400">
+                          <span>J{m.jornada}</span><span>{m.date || ""}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="flex-1 truncate text-right text-sm font-medium">{m.home}</span>
+                          <input inputMode="numeric" value={inp.hg ?? ""} onChange={(e) => setScore(m, "hg", e.target.value)}
+                            className="w-9 rounded border border-neutral-300 py-1 text-center text-sm tabular-nums" />
+                          <span className="text-neutral-300">-</span>
+                          <input inputMode="numeric" value={inp.ag ?? ""} onChange={(e) => setScore(m, "ag", e.target.value)}
+                            className="w-9 rounded border border-neutral-300 py-1 text-center text-sm tabular-nums" />
+                          <span className="flex-1 truncate text-sm font-medium">{m.away}</span>
+                        </div>
+                        <div className="mt-2 flex gap-2">
+                          <button onClick={() => saveResult(m, "played")} disabled={busy}
+                            className="tap flex-1 rounded py-1.5 text-xs font-bold text-white disabled:opacity-50" style={{ backgroundColor: RED }}>
+                            Gardar resultado
+                          </button>
+                          <button onClick={() => saveResult(m, "postponed")} disabled={busy}
+                            className="tap rounded border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-600 disabled:opacity-50">
+                            Aprazar
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {matches.postponed?.length > 0 && (
+                  <>
+                    <h3 className="mb-2 mt-5 text-xs font-bold uppercase" style={{ color: "#c99700" }}>
+                      Aprazados ({matches.postponed.length})
+                    </h3>
+                    <div className="space-y-2">
+                      {matches.postponed.map((m) => {
+                        const k = `${m.jornada}|${m.home}|${m.away}`;
+                        const inp = scoreInputs[k] || {};
+                        return (
+                          <div key={k} className="rounded-lg border border-amber-200 bg-amber-50 p-2.5">
+                            <div className="mb-1.5 text-[10px] text-amber-700">J{m.jornada} · aprazado</div>
+                            <div className="flex items-center gap-2">
+                              <span className="flex-1 truncate text-right text-sm font-medium">{m.home}</span>
+                              <input inputMode="numeric" value={inp.hg ?? ""} onChange={(e) => setScore(m, "hg", e.target.value)}
+                                className="w-9 rounded border border-neutral-300 py-1 text-center text-sm tabular-nums" />
+                              <span className="text-neutral-300">-</span>
+                              <input inputMode="numeric" value={inp.ag ?? ""} onChange={(e) => setScore(m, "ag", e.target.value)}
+                                className="w-9 rounded border border-neutral-300 py-1 text-center text-sm tabular-nums" />
+                              <span className="flex-1 truncate text-sm font-medium">{m.away}</span>
+                            </div>
+                            <button onClick={() => saveResult(m, "played")} disabled={busy}
+                              className="tap mt-2 w-full rounded py-1.5 text-xs font-bold text-white disabled:opacity-50" style={{ backgroundColor: RED }}>
+                              Xa se xogou · gardar resultado
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+
+                {matches.played?.length > 0 && (
+                  <>
+                    <h3 className="mb-2 mt-5 text-xs font-bold uppercase text-neutral-500">Xogados recentes</h3>
+                    <div className="space-y-1">
+                      {matches.played.slice().reverse().map((m) => {
+                        const k = `${m.jornada}|${m.home}|${m.away}`;
+                        return (
+                          <div key={k} className="flex items-center justify-between rounded bg-neutral-50 px-2.5 py-1.5 text-xs">
+                            <span className="truncate">J{m.jornada} · {m.home} <b>{m.hg}-{m.ag}</b> {m.away}</span>
+                            <button onClick={() => saveResult(m, "pending")} disabled={busy}
+                              className="tap ml-2 shrink-0 text-[11px] text-neutral-400">Desfacer</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
           </>
         )}
 
