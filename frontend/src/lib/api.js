@@ -70,6 +70,17 @@ api.adminReload = (token) =>
     method: "POST", headers: { Authorization: `Bearer ${token}` },
   }).then((r) => { if (!r.ok) throw new Error("reload"); return r.json(); });
 
+api.adminListMatches = (token) =>
+  fetch(`${BASE}/api/admin/matches`, { headers: { Authorization: `Bearer ${token}` } })
+    .then((r) => { if (!r.ok) throw new Error("auth"); return r.json(); });
+
+api.adminSetResult = (token, entry) =>
+  fetch(`${BASE}/api/admin/result`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(entry),
+  }).then(async (r) => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || "result"); return j; });
+
 api.adminPreviousMatches = (token) =>
   fetch(`${BASE}/api/admin/previous-matches`, {
     headers: { Authorization: `Bearer ${token}` },
