@@ -1210,7 +1210,8 @@ def _report_keys_for(rival_xg: dict, rival_s: dict, seed: int = 0) -> list[str]:
     return keys[:3]
 
 
-
+@app.on_event("startup")
+def _ensure_admin():
     """
     Crea/actualiza o usuario admin ao arrancar, lendo de variables de entorno.
     Isto resolve dúas cousas no plan gratuíto de Render:
