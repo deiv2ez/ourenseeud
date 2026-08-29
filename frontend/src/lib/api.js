@@ -123,3 +123,13 @@ api.adminDeleteSigning = (token, name) =>
 
 api.playerDetail = (name) => get(`/api/player/${encodeURIComponent(name)}`);
 api.reportUrl = () => `${BASE}/api/report/next?team=${encodeURIComponent("UD Ourense")}`;
+
+api.lineupFormations = () => get("/api/lineup/formations");
+api.lineupMatchdays = () => get("/api/lineup/matchdays");
+api.lineup = (jornada) => get(`/api/lineup/${jornada}`);
+api.adminSaveLineup = (token, jornada, formation, players) =>
+  fetch(`${BASE}/api/admin/lineup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ jornada, formation, players }),
+  }).then((r) => { if (!r.ok) throw new Error("save"); return r.json(); });
