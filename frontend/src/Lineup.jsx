@@ -40,6 +40,7 @@ export default function Lineup({ t, token: tokenProp }) {
   const [onField, setOnField] = useState([]);   // [{name,display,x,y,role,oRating}]
   const [context, setContext] = useState(null);
   const [isPast, setIsPast] = useState(false);
+  const [editing, setEditing] = useState(false);   // modo edición (tamén en pasados)
   const [squad, setSquad] = useState([]);
   const [loading, setLoading] = useState(true);
   const [picking, setPicking] = useState(null); // índice do slot a asignar
@@ -70,6 +71,7 @@ export default function Lineup({ t, token: tokenProp }) {
 
   const selectDay = useCallback(async (day) => {
     setSel(day); setIsPast(day.kind === "played"); setMsg(""); setPicking(null);
+    setEditing(day.kind !== "played");   // futuro: edición; pasado: lectura (pódese activar)
     try {
       const lu = await api.lineup(day.jornada);
       setFormation(lu.formation || "4-2-3-1");
@@ -160,8 +162,8 @@ export default function Lineup({ t, token: tokenProp }) {
       <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
         {/* CAMPO 3D */}
         <div>
-          <Pitch onField={onField} isPast={isPast} onSlotClick={(i) => {
-            if (isPast) return;
+          <Pitch onField={onField} showRatings={isPast && !editing} editing={editing} onSlotClick={(i) => {
+            if (!editing) return;
             if (onField[i].name) clearSlot(i); else setPicking(i);
           }} pickingIndex={picking} />
           {context && (
@@ -189,15 +191,23 @@ export default function Lineup({ t, token: tokenProp }) {
             </div>
           )}
 
+          {/* botón editar para partidos pasados (só admin) */}
+          {isPast && !editing && token && (
+            <button onClick={() => setEditing(true)}
+              className="tap mb-4 w-full rounded-lg border border-neutral-300 py-2 text-sm font-semibold text-neutral-700">
+              ✎ Editar aliñación a posteriori
+            </button>
+          )}
+
           {/* formación */}
           <label className="block text-[10px] font-bold uppercase text-neutral-400">Formación</label>
-          <select value={formation} onChange={(e) => changeFormation(e.target.value)} disabled={isPast}
+          <select value={formation} onChange={(e) => changeFormation(e.target.value)} disabled={!editing}
             className="mt-1 w-full rounded-lg border border-neutral-300 px-2 py-2 text-sm font-semibold disabled:opacity-60">
             {Object.keys(formations).map((f) => <option key={f} value={f}>{f}</option>)}
           </select>
 
-          {/* banquillo / selector */}
-          {!isPast && (
+          {/* banquillo / selector (só en edición) */}
+          {editing && (
             <div className="mt-4">
               <div className="mb-2 text-[10px] font-bold uppercase text-neutral-400">
                 {picking != null ? "Elixe xogador para o oco" : "Banco"}
@@ -223,7 +233,7 @@ export default function Lineup({ t, token: tokenProp }) {
 
           {msg && <p className="mt-3 text-sm font-medium" style={{ color: msg.startsWith("✓") ? "#1a8a4a" : "#c0392b" }}>{msg}</p>}
 
-          {!isPast && token && (
+          {editing && token && (
             <button onClick={save} disabled={busy}
               className="tap mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white disabled:opacity-50"
               style={{ backgroundColor: RED }}>
@@ -240,7 +250,7 @@ export default function Lineup({ t, token: tokenProp }) {
    O céspede vai INCLINADO (perspectiva de cámara de TV). Os nodos van nunha capa á parte,
    plana e frontal á cámara, para non quedar "tumbados". O mapeo projectTop comprime o eixo
    Y para que os nodos caian sobre o punto correcto do campo inclinado. */
-function Pitch({ onField, isPast, onSlotClick, pickingIndex }) {
+function Pitch({ onField, showRatings, editing, onSlotClick, pickingIndex }) {
   // O rotateX inclina o campo: a parte de arriba (rival) vai máis lonxe/comprimida e a de
   // abaixo (propia) máis preto/ancha. Reproducimos ese sesgo no posicionamento dos nodos:
   //  - top de arriba (rival) empeza máis abaixo do bordo (o campo "afúndese" ao lonxe)
@@ -257,7 +267,7 @@ function Pitch({ onField, isPast, onSlotClick, pickingIndex }) {
   return (
     <div style={{ perspective: "760px", perspectiveOrigin: "center 30%" }}
       className="mx-auto w-full max-w-[560px]">
-      <div style={{ position: "relative", aspectRatio: "3 / 4", transformStyle: "preserve-3d" }}>
+      <div style={{ position: "relative", aspectRatio: "3 / 3.5", transformStyle: "preserve-3d" }}>
         {/* CAPA 1: céspede INCLINADO (só fondo) */}
         <div style={{
           position: "absolute", inset: 0,
@@ -271,7 +281,7 @@ function Pitch({ onField, isPast, onSlotClick, pickingIndex }) {
         {/* CAPA 2: nodos, plana e frontal á cámara */}
         <div style={{ position: "absolute", inset: 0 }}>
           {onField.map((p, i) => (
-            <PlayerNode key={i} p={p} isPast={isPast} picking={pickingIndex === i}
+            <PlayerNode key={i} p={p} showRatings={showRatings} editing={editing} picking={pickingIndex === i}
               top={projectTop(p.y)} left={p.x} onClick={() => onSlotClick(i)} />
           ))}
         </div>
@@ -300,17 +310,15 @@ function PitchLines() {
   );
 }
 
-function PlayerNode({ p, isPast, picking, top, left, onClick }) {
+function PlayerNode({ p, showRatings, editing, picking, top, left, onClick }) {
   const empty = !p.name;
   return (
     <div onClick={onClick}
       style={{
         position: "absolute", left: `${left}%`, top: `${top}%`,
-        // capa plana: só centramos. Sen rotateX → totalmente frontal á cámara.
         transform: "translate(-50%, -50%)",
-        cursor: isPast ? "default" : "pointer",
+        cursor: editing ? "pointer" : "default",
         zIndex: Math.round(top),
-        // nitidez do texto: forzar renderizado en capa propia sen suavizado raro
         willChange: "transform",
       }}>
       <div className="flex flex-col items-center gap-1">
@@ -324,9 +332,8 @@ function PlayerNode({ p, isPast, picking, top, left, onClick }) {
           <div className="relative">
             {/* camiseta: PNG personalizado (camiseta.png). Fallback a SVG abstracto. */}
             <Shirt />
-            {/* badge de oRating (só pasados) — estética da sección Plantilla:
-                cadrado redondeado, font-black, cor de fondo segundo a nota. */}
-            {isPast && p.oRating != null && (
+            {/* badge de oRating (só en lectura de pasados) — estética da Plantilla */}
+            {showRatings && p.oRating != null && (
               <span className="absolute -right-2 -top-2 grid place-items-center rounded-lg font-black text-white"
                 style={{ width: 26, height: 26, fontSize: 12, backgroundColor: ratingColor(p.oRating),
                          boxShadow: "0 2px 5px rgba(0,0,0,0.3)" }}>

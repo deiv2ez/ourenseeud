@@ -70,6 +70,7 @@ const I18N = {
     anMeritedSub: "Clasificación por puntos MERECIDOS (oPts) en vez dos reais.",
     anProjSub: "Onde acabará cada equipo segundo o modelo (posición media e rango).",
     anObjSub: "Puntos estimados para cada obxectivo e canto falta.",
+    anModelTitle: "Segundo o modelo", anModelSub: "Probabilidade de cada obxectivo e posición proxectada a final de tempada.", anProjPos: "posición media", anRange: "rango",
     anCompareSub: "Compara dous equipos lado a lado.",
     anMeritedPos: "Merecida", anRealPos: "Real", anAvgPos: "Media", anRange: "Rango",
     anChampion: "Campión", anPlayoffG: "Playoff", anSafety: "Permanencia",
@@ -118,6 +119,7 @@ const I18N = {
     anMeritedSub: "Clasificación por puntos MERECIDOS (oPts) en vez de los reales.",
     anProjSub: "Dónde acabará cada equipo según el modelo (posición media y rango).",
     anObjSub: "Puntos estimados para cada objetivo y cuánto falta.",
+    anModelTitle: "Según el modelo", anModelSub: "Probabilidad de cada objetivo y posición proyectada a final de temporada.", anProjPos: "posición media", anRange: "rango",
     anCompareSub: "Compara dos equipos lado a lado.",
     anMeritedPos: "Merecida", anRealPos: "Real", anAvgPos: "Media", anRange: "Rango",
     anChampion: "Campeón", anPlayoffG: "Playoff", anSafety: "Permanencia",
@@ -229,7 +231,7 @@ function Crest({ team, size = 22 }) {
   );
 }
 function FormDots({ form }) {
-  const c = { W: "#1a8a4a", D: "#9a9a9a", L: "#c0392b" };
+  const c = { W: "#1a8a4a", D: "#e0a500", L: "#c0392b" };
   return <span className="inline-flex gap-1">{form.map((r, i) => <span key={i} title={r} className="h-2 w-2 rounded-full" style={{ backgroundColor: c[r] }} />)}</span>;
 }
 function Bar({ value, color }) {
@@ -1262,6 +1264,45 @@ function Objectives({ t }) {
           </div>
         ))}
       </div>
+
+      {/* Estatísticas do modelo + gráfica de probabilidades */}
+      {d.model && (
+        <div className="mt-5 rounded-lg border border-neutral-200 bg-white p-4">
+          <div className="mb-1 text-xs font-bold uppercase tracking-wide text-neutral-500">
+            {t.anModelTitle || "Segundo o modelo"}
+          </div>
+          <p className="mb-3 text-xs text-neutral-400">
+            {t.anModelSub || "Probabilidade de cada obxectivo e posición proxectada a final de tempada."}
+          </p>
+
+          {/* posición proxectada */}
+          <div className="mb-4 flex items-baseline gap-2">
+            <span className="text-3xl font-black tabular-nums">{d.model.proj_pos}º</span>
+            <span className="text-xs text-neutral-400">
+              {t.anProjPos || "posición media"} · {t.anRange || "rango"} {d.model.pos_best}º–{d.model.pos_worst}º
+            </span>
+          </div>
+
+          {/* gráfica de barras de probabilidades */}
+          <div className="space-y-2.5">
+            {[
+              [t.anChampion, d.model.p_champion, "#1a8a4a"],
+              [t.anPlayoffG, d.model.p_playoff, "#e0a500"],
+              [t.anSafety, d.model.p_safety, "#2f6fd0"],
+            ].map(([label, pct, col]) => (
+              <div key={label}>
+                <div className="mb-0.5 flex justify-between text-[11px]">
+                  <span className="font-semibold uppercase text-neutral-500">{label}</span>
+                  <span className="font-black tabular-nums" style={{ color: col }}>{pct}%</span>
+                </div>
+                <div className="h-2.5 overflow-hidden rounded-full bg-neutral-100">
+                  <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: col }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1305,7 +1346,6 @@ function Compare({ t }) {
           {rowM("GF", d1.gf, d2.gf, d1.gf > d2.gf)}
           {rowM("GC", d1.ga, d2.ga, d1.ga < d2.ga)}
           {rowM(t.gd, d1.gd, d2.gd, d1.gd > d2.gd)}
-          {rowM("Elo", d1.elo, d2.elo, d1.elo > d2.elo)}
         </div>
       )}
     </div>
