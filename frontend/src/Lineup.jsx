@@ -251,8 +251,8 @@ function Pitch({ onField, isPast, onSlotClick, pickingIndex }) {
     // curva suave: arriba xúntanse, abaixo sepáranse (imita a perspectiva).
     // rango 18%..96%: baixado para que ningún nodo se saia por arriba (o dianteiro
     // centro quedaba fóra do campo). O céspede inclinado ocupa esa franxa vertical.
-    const eased = t * t * 0.40 + t * 0.60;   // 0..1
-    return 22 + eased * 72;                    // 22%..94%
+    const eased = t * t * 0.35 + t * 0.65;   // 0..1
+    return 24 + eased * 72;                    // 24%..96% (Vizoso na área pequena, Rufo sobre a grande)
   };
   return (
     <div style={{ perspective: "760px", perspectiveOrigin: "center 30%" }}
