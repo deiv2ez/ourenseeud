@@ -247,10 +247,12 @@ function Pitch({ onField, isPast, onSlotClick, pickingIndex }) {
   //  - o rango comprímese arriba e ábrese abaixo.
   const projectTop = (y) => {
     const top = 100 - y;           // 0 = área rival (arriba), 100 = área propia (abaixo)
-    // curva suave: arriba xúntanse, abaixo sepáranse (imita a perspectiva)
     const t = top / 100;
-    const eased = t * t * 0.45 + t * 0.5;   // 0..~0.95
-    return 6 + eased * 90;                    // 6%..~92%
+    // curva suave: arriba xúntanse, abaixo sepáranse (imita a perspectiva).
+    // rango 18%..96%: baixado para que ningún nodo se saia por arriba (o dianteiro
+    // centro quedaba fóra do campo). O céspede inclinado ocupa esa franxa vertical.
+    const eased = t * t * 0.40 + t * 0.60;   // 0..1
+    return 22 + eased * 72;                    // 22%..94%
   };
   return (
     <div style={{ perspective: "760px", perspectiveOrigin: "center 30%" }}
@@ -322,11 +324,12 @@ function PlayerNode({ p, isPast, picking, top, left, onClick }) {
           <div className="relative">
             {/* camiseta: PNG personalizado (camiseta.png). Fallback a SVG abstracto. */}
             <Shirt />
-            {/* badge de oRating (só pasados) */}
+            {/* badge de oRating (só pasados) — estética da sección Plantilla:
+                cadrado redondeado, font-black, cor de fondo segundo a nota. */}
             {isPast && p.oRating != null && (
-              <span className="absolute -right-1.5 -top-1.5 grid place-items-center rounded-full text-[10px] font-black text-white"
-                style={{ width: 21, height: 21, backgroundColor: ratingColor(p.oRating),
-                         boxShadow: "0 1px 3px rgba(0,0,0,0.35)" }}>
+              <span className="absolute -right-2 -top-2 grid place-items-center rounded-lg font-black text-white"
+                style={{ width: 26, height: 26, fontSize: 12, backgroundColor: ratingColor(p.oRating),
+                         boxShadow: "0 2px 5px rgba(0,0,0,0.3)" }}>
                 {p.oRating.toFixed(1)}
               </span>
             )}
@@ -353,7 +356,7 @@ function PlayerNode({ p, isPast, picking, top, left, onClick }) {
    Tamaño ~+35% respecto á versión anterior (de 34 a 46px). */
 function Shirt() {
   const [ok, setOk] = useState(true);
-  const size = 60;
+  const size = 75;
   if (ok) {
     return <img src="/camiseta.png" alt="" onError={() => setOk(false)}
       style={{ width: size, height: size, objectFit: "contain",
