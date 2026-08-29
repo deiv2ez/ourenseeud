@@ -56,7 +56,7 @@ const I18N = {
     tpBack: "← Volver á clasificación", tpNext: "Próximo partido", tpCalendar: "Calendario",
     tpPlayed: "Xogados", tpUpcoming: "Pendentes", tpHome: "Casa", tpAway: "Fóra", tpJ: "X",
     tpStyle: "Perfil de estilo", tpOffense: "Ataque", tpDefense: "Defensa",
-    tpHomePerf: "Local", tpAwayPerf: "Visitante", tpStyleNote: "Nota de estilo (prensa)",
+    tpHomePerf: "Local", tpAwayPerf: "Visitante", tpStyleNote: "Nota de estilo (prensa)", tpWin: "Vitoria", tpDraw: "Empate", tpLoss: "Derrota", reportBtn: "↓ Descargar informe do próximo partido (PDF)",
     tpXgTitle: "Rendemento xG", tpXgMatches: "partidos con estatísticas", tpXgFor: "Ataque",
     tpXgAgainst: "Defensa", tpXgGoals: "Goles", tpXgForShort: "a favor", tpXgAgainstShort: "en contra",
     signing: "Obxectivo", games: "Partidos",
@@ -104,7 +104,7 @@ const I18N = {
     tpBack: "← Volver a la clasificación", tpNext: "Próximo partido", tpCalendar: "Calendario",
     tpPlayed: "Jugados", tpUpcoming: "Pendientes", tpHome: "Casa", tpAway: "Fuera", tpJ: "J",
     tpStyle: "Perfil de estilo", tpOffense: "Ataque", tpDefense: "Defensa",
-    tpHomePerf: "Local", tpAwayPerf: "Visitante", tpStyleNote: "Nota de estilo (prensa)",
+    tpHomePerf: "Local", tpAwayPerf: "Visitante", tpStyleNote: "Nota de estilo (prensa)", tpWin: "Victoria", tpDraw: "Empate", tpLoss: "Derrota", reportBtn: "↓ Descargar informe del próximo partido (PDF)",
     tpXgTitle: "Rendimiento xG", tpXgMatches: "partidos con estadísticas", tpXgFor: "Ataque",
     tpXgAgainst: "Defensa", tpXgGoals: "Goles", tpXgForShort: "a favor", tpXgAgainstShort: "en contra",
     signing: "Objetivo", games: "Partidos",
@@ -573,10 +573,10 @@ function AdminPanel({ t, onExit }) {
         </div>
 
         {/* pestanas */}
-        <div className="mb-4 inline-flex gap-1 rounded-lg border border-neutral-200 bg-white p-1">
+        <div className="scroll-x mb-4 flex gap-1 rounded-lg border border-neutral-200 bg-white p-1">
           {TABS.map(([k, label]) => (
             <button key={k} onClick={() => { setTab(k); setMsg(""); }}
-              className={`tap rounded-md px-4 py-1.5 text-sm font-medium transition ${tab === k ? "text-white" : "text-neutral-600 hover:bg-neutral-100"}`}
+              className={`tap shrink-0 rounded-md px-4 py-1.5 text-sm font-medium transition ${tab === k ? "text-white" : "text-neutral-600 hover:bg-neutral-100"}`}
               style={tab === k ? { backgroundColor: RED } : undefined}>{label}</button>
           ))}
         </div>
@@ -851,16 +851,14 @@ function TeamProfile({ t, slug, onBack }) {
               </>); })()}
             </div>
             <div className="flex h-6 overflow-hidden rounded text-[10px] font-bold text-white">
-              <div className="grid place-items-center" style={{ width: `${d.next.p_home}%`, backgroundColor: "#1a8a4a" }} title={`1: ${d.next.p_home}%`}>{d.next.p_home >= 12 ? `${d.next.p_home}%` : ""}</div>
-              <div className="grid place-items-center" style={{ width: `${d.next.p_draw}%`, backgroundColor: "#9a9a9a" }} title={`X: ${d.next.p_draw}%`}>{d.next.p_draw >= 12 ? `${d.next.p_draw}%` : ""}</div>
-              <div className="grid place-items-center" style={{ width: `${d.next.p_away}%`, backgroundColor: "#c0392b" }} title={`2: ${d.next.p_away}%`}>{d.next.p_away >= 12 ? `${d.next.p_away}%` : ""}</div>
+              <div className="grid place-items-center" style={{ width: `${d.next.p_win}%`, backgroundColor: "#1a8a4a" }} title={`${t.tpWin}: ${d.next.p_win}%`}>{d.next.p_win >= 12 ? `${d.next.p_win}%` : ""}</div>
+              <div className="grid place-items-center" style={{ width: `${d.next.p_draw}%`, backgroundColor: "#9a9a9a" }} title={`${t.tpDraw}: ${d.next.p_draw}%`}>{d.next.p_draw >= 12 ? `${d.next.p_draw}%` : ""}</div>
+              <div className="grid place-items-center" style={{ width: `${d.next.p_loss}%`, backgroundColor: "#c0392b" }} title={`${t.tpLoss}: ${d.next.p_loss}%`}>{d.next.p_loss >= 12 ? `${d.next.p_loss}%` : ""}</div>
             </div>
             <div className="mt-1 flex justify-between text-[9px] uppercase text-neutral-400">
-              <span>1 · {t.tpHome}</span>
-              <span>X</span>
-              <span>{t.tpAway} · 2</span>
+              <span>{t.tpWin}</span><span>{t.tpDraw}</span><span>{t.tpLoss}</span>
             </div>
-            <div className="mt-1 text-center text-[10px] text-neutral-400">oG {d.next.oGoals_home}-{d.next.oGoals_away}</div>
+            <div className="mt-1 text-center text-[10px] text-neutral-400">{d.next.is_home ? t.tpHome : t.tpAway} · oG {d.next.oGoals_home}-{d.next.oGoals_away}</div>
           </section>
         )}
 
@@ -1634,6 +1632,13 @@ function CommandCenter({ t }) {
   return (
     <div>
       <SectionHead title="UD Ourense" sub={t.nav.hub} accent />
+      {nx && (
+        <a href={api.reportUrl()} target="_blank" rel="noopener noreferrer"
+          className="tap mb-4 flex items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold text-white"
+          style={{ backgroundColor: RED }}>
+          {t.reportBtn || "↓ Descargar informe do próximo partido (PDF)"}
+        </a>
+      )}
       <div className="grid gap-4 md:grid-cols-2">
         {/* próximo partido */}
         <section className="rounded-lg border border-neutral-200 bg-white p-4">
@@ -1801,7 +1806,7 @@ function PlayerDetail({ t, name, onClose }) {
 
 function Squad({ t }) {
   const [filter, setFilter] = useState("all");
-  const [players, setPlayers] = useState(SQUAD);
+  const [players, setPlayers] = useState(null);   // null = cargando (nada de mock)
   const [selected, setSelected] = useState(null);
 
   useEffect(() => {
@@ -1809,14 +1814,13 @@ function Squad({ t }) {
     (async () => {
       try {
         const sq = await api.squad();
-        if (!alive || !Array.isArray(sq) || !sq.length) return;
-        // o backend dá born como data "YYYY-MM-DD"; a tarxeta usa o ano
-        setPlayers(sq.map((p) => ({
+        if (!alive) return;
+        setPlayers(Array.isArray(sq) ? sq.map((p) => ({
           ...p,
           born: typeof p.born === "string" ? parseInt(p.born.slice(0, 4)) : p.born,
           oR: p.oRating ?? null,
-        })));
-      } catch { /* fallback ao SQUAD mock xa cargado */ }
+        })) : []);
+      } catch { if (alive) setPlayers([]); }
     })();
     return () => { alive = false; };
   }, []);
@@ -1825,7 +1829,7 @@ function Squad({ t }) {
   const POS = { GK: "POR", POR: "POR", DEF: "DEF", DF: "DFC", LI: "LI", LD: "LD", MED: "MED", MC: "MC", MCO: "MCO", DEL: "DEL", EI: "EI", ED: "ED", DC: "DC" };
   const rc = (r) => (r == null ? "#c4c4c4" : r >= 7.0 ? "#1a8a4a" : r >= 6.3 ? "#c99700" : "#b06a3b");
   const fmtMV = (v) => (v == null ? "—" : `${Math.round(v / 1000)} mil €`);
-  const list = filter === "all" ? players : players.filter((p) => GROUP[p.pos] === filter);
+  const list = players === null ? [] : (filter === "all" ? players : players.filter((p) => GROUP[p.pos] === filter));
   const tabs = [["all", t.all], ["gk", t.gk], ["df", t.df], ["mf", t.mf], ["fw", t.fw]];
 
   return (
@@ -1838,6 +1842,7 @@ function Squad({ t }) {
             style={filter === k ? { backgroundColor: RED } : undefined}>{label}</button>
         ))}
       </div>
+      {players === null ? <Loading text={t.loading} /> : (
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {list.map((p) => (
           <div key={p.name} onClick={() => setSelected(p.name)}
@@ -1859,6 +1864,7 @@ function Squad({ t }) {
           </div>
         ))}
       </div>
+      )}
       <p className="mt-4 text-xs text-neutral-400">{t.ratingHelp}</p>
       {selected && <PlayerDetail t={t} name={selected} onClose={() => setSelected(null)} />}
     </div>
