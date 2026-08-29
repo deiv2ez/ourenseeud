@@ -106,3 +106,4 @@ api.adminDeleteSigning = (token, name) =>
   }).then((r) => { if (!r.ok) throw new Error("del"); return r.json(); });
 
 api.playerDetail = (name) => get(`/api/player/${encodeURIComponent(name)}`);
+api.reportUrl = () => `${BASE}/api/report/next?team=${encodeURIComponent("UD Ourense")}`;
