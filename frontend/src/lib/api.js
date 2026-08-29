@@ -65,6 +65,11 @@ api.adminSetOdds = (token, jornada, entries) =>
     body: JSON.stringify({ jornada, entries }),
   }).then((r) => { if (!r.ok) throw new Error("save"); return r.json(); });
 
+api.adminUdoLastMatch = (token) =>
+  fetch(`${BASE}/api/admin/udo-last-match`, {
+    headers: { Authorization: `Bearer ${token}` },
+  }).then((r) => { if (!r.ok) throw new Error("auth"); return r.json(); });
+
 api.adminReload = (token) =>
   fetch(`${BASE}/api/admin/reload`, {
     method: "POST", headers: { Authorization: `Bearer ${token}` },
