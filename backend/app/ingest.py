@@ -20,10 +20,45 @@ from .apifootball import ApiFootball
 from .store import load, save, NAMES
 
 
-# Mapa de nomes de API-Football → os nosos nomes canónicos.
-# (Complétase cando teñamos os nomes exactos que devolve a API para o Grupo 1.)
+# Mapa de nomes de API-Football → os nosos nomes canónicos (do calendario).
+# OLLO: a cobertura de 1ª RFEF Grupo 1 en API-Football é incompleta (faltan equipos
+# como Barakaldo e Ponferradina nas listas), así que a actualización automática pode
+# non traer todos os partidos. A entrada manual (pestana Resultados) é a vía fiable.
 NAME_MAP: dict[str, str] = {
-    # "Ponferradina": "SD Ponferradina",  # exemplo
+    "Mérida": "AD Mérida",
+    "Arenas Getxo": "Arenas Club",
+    "Arenas de Getxo": "Arenas Club",
+    "Athletic Club II": "Bilbao Athletic",
+    "Athletic Bilbao II": "Bilbao Athletic",
+    "CD Coria": "CD Coria",
+    "Coria": "CD Coria",
+    "Extremadura": "CD Extremadura",
+    "Extremadura UD": "CD Extremadura",
+    "Lugo": "CD Lugo",
+    "Mirandes": "CD Mirandés",
+    "Mirandés": "CD Mirandés",
+    "Cacereño": "CP Cacereño",
+    "Cultural Leonesa": "CyD Leonesa",
+    "Cultural y Deportiva Leonesa": "CyD Leonesa",
+    "Pontevedra": "Pontevedra CF",
+    "Deportivo La Coruña II": "RC Deportivo Fabril",
+    "Deportivo Fabril": "RC Deportivo Fabril",
+    "Racing Ferrol": "Racing Ferrol",
+    "Real Avilés": "Real Avilés",
+    "Real Avilés Industrial": "Real Avilés",
+    "Real Unión": "Real Unión",
+    "Real Union Club": "Real Unión",
+    "UD Logroñés": "UD Logroñés",
+    "UD Ourense": "UD Ourense",
+    "Ourense CF": "UD Ourense",
+    "Unionistas de Salamanca": "Unionistas",
+    "Unionistas": "Unionistas",
+    "Zamora": "Zamora CF",
+    # Barakaldo CF e SD Ponferradina: manteñen o mesmo nome (se a API os devolve).
+    "Barakaldo": "Barakaldo CF",
+    "Barakaldo CF": "Barakaldo CF",
+    "Ponferradina": "SD Ponferradina",
+    "SD Ponferradina": "SD Ponferradina",
 }
 
 
@@ -85,28 +120,79 @@ def _round_num(round_str: str) -> int:
         return 0
 
 
+def ingest_results_by_team(client) -> list[dict]:
+    """
+    Busca os partidos POR EQUIPO (máis fiable que por liga en 1ª RFEF) e devolve SÓ os
+    resultados dos partidos XOGADOS entre equipos do noso grupo: [{home, away, hg, ag}].
+    Non colle stats, non toca o calendario: só marcadores.
+    """
+    from .apifootball import TEAM_IDS
+    canon_teams = set(NAMES)
+    seen = set()
+    results = []
+    for canon, tid in TEAM_IDS.items():
+        try:
+            data = client.fixtures_by_team(tid)
+        except Exception as exc:
+            print(f"[ingest] fallo ao pedir {canon} ({tid}): {exc}")
+            continue
+        for f in data.get("response", []):
+            fx = f.get("fixture", {})
+            teams = f.get("teams", {})
+            goals = f.get("goals", {})
+            status = fx.get("status", {}).get("short", "")
+            home = _canon(teams.get("home", {}).get("name", ""))
+            away = _canon(teams.get("away", {}).get("name", ""))
+            # só partidos ENTRE equipos do noso grupo e xa rematados
+            if home not in canon_teams or away not in canon_teams:
+                continue
+            if status != "FT":
+                continue
+            key = (home, away)
+            if key in seen:
+                continue
+            seen.add(key)
+            results.append({"home": home, "away": away,
+                            "hg": goals.get("home", 0), "ag": goals.get("away", 0)})
+    return results
+
+
 def run(real: bool = False) -> dict:
-    """Ingesta completa: actualiza season_*.json coa clasificación e fixtures."""
+    """
+    Ingesta de RESULTADOS: busca por equipo (fiable en 1ª RFEF) e actualiza SÓ os goles
+    dos partidos xogados, fusionándoos sobre o calendario existente. Non toca as stats
+    (esas métense a man e son capa aparte). Non "inventa" calendario: só engade marcadores.
+    """
     client = ApiFootball(mock=not real)
     mode = "REAL" if real and client.api_key else "MOCK"
     print(f"[ingest] modo {mode}")
 
-    standings = ingest_standings(client)
-    print(f"[ingest] clasificación: {len(standings)} equipos")
-
-    played, remaining = ingest_fixtures(client)
-    print(f"[ingest] fixtures: {len(played)} xogados, {len(remaining)} pendentes")
-
     data = load()
-    if played or remaining:
-        data["played"] = played
-        data["remaining"] = remaining
-        save(data)
-        print("[ingest] season_*.json actualizado")
-    else:
-        print("[ingest] sen fixtures (mock ou liga sen comezar); clasificación só para verificación")
+    results = ingest_results_by_team(client) if mode == "REAL" else []
+    print(f"[ingest] resultados atopados: {len(results)}")
 
-    return {"standings": standings, "played": played, "remaining": remaining}
+    if results:
+        # índice de resultados por (home, away)
+        by_key = {(r["home"], r["away"]): r for r in results}
+        played = list(data.get("played", []))
+        played_keys = {(m["home"], m["away"]) for m in played}
+        new_remaining = []
+        for m in data.get("remaining", []):
+            r = by_key.get((m["home"], m["away"]))
+            if r and (m["home"], m["away"]) not in played_keys:
+                played.append({**m, "hg": r["hg"], "ag": r["ag"]})
+                played_keys.add((m["home"], m["away"]))
+            else:
+                new_remaining.append(m)
+        data["played"] = played
+        data["remaining"] = new_remaining
+        save(data)
+        print(f"[ingest] {len(played)} xogados, {len(new_remaining)} pendentes · season_*.json actualizado")
+
+    # clasificación só para verificación (non se garda como fonte principal)
+    standings = []
+    return {"standings": standings, "played": data.get("played", []),
+            "remaining": data.get("remaining", []), "results_found": len(results)}
 
 
 if __name__ == "__main__":

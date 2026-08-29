@@ -77,23 +77,24 @@ def load() -> dict:
         from . import odds_store
         results = odds_store.load_results()
         if results:
-            # índice dos resultados por (home, away)
             by_key = {(r["home"], r["away"]): r for r in results}
             new_remaining, moved_played, postponed = [], [], []
-            # partidos xa xogados na fonte base: manter, pero permitir corrección manual
-            played_keys = {(m["home"], m["away"]) for m in data.get("played", [])}
             for m in data.get("played", []):
                 r = by_key.get((m["home"], m["away"]))
                 if r and r.get("status") == "played" and r.get("hg") is not None:
                     m = {**m, "hg": r["hg"], "ag": r["ag"]}   # corrección manual
                 moved_played.append(m)
-            # partidos pendentes: mirar se teñen resultado/aprazamento manual
             for m in data.get("remaining", []):
                 r = by_key.get((m["home"], m["away"]))
                 if not r:
                     new_remaining.append(m)
                 elif r.get("status") == "postponed":
-                    postponed.append({**m, "postponed": True})
+                    # IMPORTANTE: un partido aprazado SEGUE sendo pendente (vaise xogar
+                    # máis tarde), así que queda en 'remaining' para que o simulador e as
+                    # predicións o conten. Só se marca cun flag para resaltalo no panel.
+                    mm = {**m, "postponed": True}
+                    new_remaining.append(mm)
+                    postponed.append(mm)
                 elif r.get("status") == "played" and r.get("hg") is not None:
                     moved_played.append({**m, "hg": r["hg"], "ag": r["ag"]})
                 else:
@@ -810,15 +811,31 @@ def admin_reload(user: dict = Depends(require_admin)):
                 "message": "Non hai API_FOOTBALL_KEY en Render. Podes meter os resultados a man."}
     try:
         result = ingest_run(real=True)
+        found = result.get("results_found", 0)
+        # persistir os resultados en Supabase (sobreviven a reinicios de Render)
+        saved = 0
+        try:
+            from . import odds_store
+            if odds_store.enabled():
+                # reconstruír os resultados dos partidos que quedaron 'played'
+                base = _store_load()
+                base_played = {(m["home"], m["away"]) for m in base.get("played", [])}
+                for m in result.get("played", []):
+                    key = (m["home"], m["away"])
+                    if key not in base_played and m.get("hg") is not None:
+                        odds_store.save_result(m["jornada"], m["home"], m["away"],
+                                               m["hg"], m["ag"], status="played")
+                        saved += 1
+        except Exception:
+            pass
         _cached_sim.cache_clear()
         return {"ok": True, "by": user["username"], "source": "api",
-                "standings": len(result["standings"]), "played": len(result["played"]),
-                "message": "Resultados actualizados desde a API."}
+                "results_found": found, "saved_supabase": saved,
+                "message": (f"Atopados {found} resultados na API"
+                            + (f", {saved} novos gardados." if saved else ", sen novidades."))}
     except Exception as exc:
-        # non bloquear: a entrada manual é a rede de seguridade
         return {"ok": False, "source": "api", "error": str(exc)[:200],
-                "message": ("A API fallou (clave, cobertura da categoría ou nomes dos equipos). "
-                            "Podes meter os resultados a man na pestana Resultados.")}
+                "message": ("A API fallou. Podes meter os resultados a man na pestana Resultados.")}
 
 
 @app.get("/api/admin/matches")
@@ -838,8 +855,10 @@ def admin_list_matches(user: dict = Depends(require_admin)):
                 "date": m.get("date"), "hg": m.get("hg"), "ag": m.get("ag"),
                 "status": status}
 
-    # pendentes ordenados por data/xornada (os máis próximos primeiro)
-    pend = sorted(remaining, key=lambda x: (x.get("date") or "", x["jornada"]))
+    # pendentes = remaining SEN os aprazados (que se amosan á parte)
+    postponed_keys = {(m["home"], m["away"]) for m in postponed}
+    pend = sorted([m for m in remaining if (m["home"], m["away"]) not in postponed_keys],
+                  key=lambda x: (x.get("date") or "", x["jornada"]))
     # xogados: os últimos por xornada (para corrección)
     playd = sorted(played, key=lambda x: x["jornada"])
     return {

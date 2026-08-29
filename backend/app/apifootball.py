@@ -35,9 +35,35 @@ BASE_URL = "https://v3.football.api-sports.io"
 CACHE_DIR = Path(__file__).resolve().parent.parent / "data" / "api_cache"
 CACHE_TTL = 6 * 3600  # 6 horas por defecto; a clasificación cambia semanalmente
 
-# Placeholder: substituír polo id real do dashboard de API-Football.
+# id da liga (pode non estar ben etiquetada para 1ª RFEF G1; por iso usamos tamén
+# a busca POR EQUIPO, que é máis fiable).
 SPAIN_1RFEF_G1 = 435  # EXEMPLO — confirmar id real
 SEASON = 2026
+
+# IDs de equipo en API-Football (fornecidos polo usuario). Clave = nome canónico
+# do noso calendario. Con estes IDs buscamos os partidos por equipo.
+TEAM_IDS: dict[str, int] = {
+    "AD Mérida": 9402,
+    "Arenas Club": 9578,
+    "Bilbao Athletic": 9579,
+    "Barakaldo CF": 5251,
+    "CD Coria": 9827,
+    "CD Extremadura": 860,
+    "CD Lugo": 716,
+    "CD Mirandés": 799,
+    "CP Cacereño": 9384,
+    "CyD Leonesa": 724,
+    "Pontevedra CF": 9407,
+    "Racing Ferrol": 9409,
+    "RC Deportivo Fabril": 9610,
+    "Real Avilés": 9632,
+    "Real Unión": 9586,
+    "SD Ponferradina": 4907,
+    "UD Logroñés": 5280,
+    "UD Ourense": 9617,
+    "Unionistas": 5281,
+    "Zamora CF": 9418,
+}
 
 
 class ApiFootball:
@@ -90,6 +116,10 @@ class ApiFootball:
 
     def fixtures(self, league: int = SPAIN_1RFEF_G1, season: int = SEASON) -> dict:
         return self._request("fixtures", {"league": league, "season": season})
+
+    def fixtures_by_team(self, team_id: int, season: int = SEASON) -> dict:
+        """Partidos dun equipo na tempada. Máis fiable que por liga en 1ª RFEF."""
+        return self._request("fixtures", {"team": team_id, "season": season})
 
     def players(self, team: int, season: int = SEASON) -> dict:
         return self._request("players", {"team": team, "season": season})
