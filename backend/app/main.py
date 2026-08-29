@@ -914,6 +914,7 @@ class OddsEntry(BaseModel):
     c_home: float      # cuota decimal 1
     c_draw: float      # cuota decimal X
     c_away: float      # cuota decimal 2
+    jornada: int | None = None   # xornada dese partido (para partidos mesturados)
 
 
 class OddsUpload(BaseModel):
@@ -923,23 +924,31 @@ class OddsUpload(BaseModel):
 
 @app.get("/api/admin/matchday-odds")
 def admin_get_matchday_odds(user: dict = Depends(require_admin)):
-    """Devuelve os partidos da próxima xornada pendente e as súas cuotas actuais
-    (se as houber), para que o admin as edite. Só admin."""
+    """
+    Devolve os PRÓXIMOS partidos pendentes ordenados por data (non unha xornada fixa),
+    coas súas cuotas actuais, para que o admin as edite. Así os aprazamentos e os
+    partidos adiantados de distintas xornadas aparecen todos, sen descuadres.
+    Inclúe a xornada de cada partido para amosala como etiqueta.
+    """
     data = load()
-    if not data["remaining"]:
+    rem = data.get("remaining", [])
+    if not rem:
         return {"jornada": None, "matches": []}
-    j = min(m["jornada"] for m in data["remaining"])
+    # ordenar por data (e xornada como desempate); amosar os próximos ~20
+    rem_sorted = sorted(rem, key=lambda x: (x.get("date") or "9999", x["jornada"]))
     matches = []
-    for m in data["remaining"]:
-        if m["jornada"] != j:
-            continue
+    for m in rem_sorted[:20]:
         od = m.get("odds") or {}
         matches.append({
+            "jornada": m["jornada"], "date": m.get("date"),
+            "postponed": bool(m.get("postponed")),
             "home": m["home"], "away": m["away"],
             "home_slug": SLUG_BY_NAME[m["home"]], "away_slug": SLUG_BY_NAME[m["away"]],
             "c_home": od.get("home"), "c_draw": od.get("draw"), "c_away": od.get("away"),
         })
-    return {"jornada": j, "matches": matches}
+    # xornada "de referencia" = a do primeiro partido (só informativa)
+    j0 = matches[0]["jornada"] if matches else None
+    return {"jornada": j0, "matches": matches}
 
 
 @app.post("/api/admin/odds")
@@ -953,22 +962,32 @@ def admin_set_odds(payload: OddsUpload, user: dict = Depends(require_admin)):
     """
     from .store import save
     from . import odds_store
-    entries = [{"home": e.home, "away": e.away,
-                "c_home": e.c_home, "c_draw": e.c_draw, "c_away": e.c_away}
-               for e in payload.entries
-               if e.c_home >= 1 and e.c_draw >= 1 and e.c_away >= 1]
+    data = load()
+    # mapa (home,away) → xornada real do calendario (para non depender dunha global)
+    jornada_by_match = {(m["home"], m["away"]): m["jornada"] for m in data.get("remaining", [])}
 
-    # 1) persistencia en Supabase (se está activo)
+    entries = []
+    for e in payload.entries:
+        if not (e.c_home >= 1 and e.c_draw >= 1 and e.c_away >= 1):
+            continue
+        j = e.jornada or jornada_by_match.get((e.home, e.away)) or payload.jornada
+        entries.append({"home": e.home, "away": e.away, "jornada": j,
+                        "c_home": e.c_home, "c_draw": e.c_draw, "c_away": e.c_away})
+
+    # 1) persistencia en Supabase (cada partido coa súa xornada real)
     saved_remote = 0
     try:
-        saved_remote = odds_store.save_odds(payload.jornada, entries)
+        # agrupar por xornada para o save (a táboa ten PK jornada+home+away)
+        by_j = {}
+        for e in entries:
+            by_j.setdefault(e["jornada"], []).append(e)
+        for j, es in by_j.items():
+            saved_remote += odds_store.save_odds(j, es)
     except Exception as exc:
         raise HTTPException(502, f"Erro gardando en Supabase: {exc}")
 
-    # 2) tamén no JSON local (para que funcione xa nesta sesión aínda sen Supabase)
-    data = load()
-    idx = {(m["home"], m["away"]): m for m in data["remaining"]
-           if m["jornada"] == payload.jornada}
+    # 2) tamén no JSON local (para esta sesión aínda sen Supabase)
+    idx = {(m["home"], m["away"]): m for m in data["remaining"]}
     updated = 0
     for e in entries:
         m = idx.get((e["home"], e["away"]))
@@ -976,8 +995,8 @@ def admin_set_odds(payload: OddsUpload, user: dict = Depends(require_admin)):
             m["odds"] = {"home": e["c_home"], "draw": e["c_draw"], "away": e["c_away"]}
             updated += 1
     save(data)
-    _cached_sim.cache_clear()   # forza recálculo de simulacións e features
-    return {"ok": True, "by": user["username"], "jornada": payload.jornada,
+    _cached_sim.cache_clear()
+    return {"ok": True, "by": user["username"],
             "updated": updated, "persisted": saved_remote,
             "storage": "supabase" if odds_store.enabled() else "local"}
 
@@ -996,22 +1015,25 @@ class StatsUpload(BaseModel):
 @app.get("/api/admin/previous-matches")
 def admin_previous_matches(user: dict = Depends(require_admin)):
     """
-    Partidos da última xornada XOGADA (para meter as estatísticas xG). Se aínda non
-    hai partidos xogados, colle a primeira xornada do calendario como referencia.
-    Devolve tamén se xa hai stats gardadas para cada partido.
+    Últimos partidos XOGADOS (ordenados por data), para meter as estatísticas xG. Non se
+    limita a unha xornada fixa: así os aprazamentos non descuadran nada (pode haber
+    partidos xogados de distintas xornadas mesturados). Devolve se xa hai stats por partido.
     """
     data = load()
     from . import odds_store
     stats_rows = odds_store.load_stats()
     have = {(s["home"], s["away"]) for s in stats_rows}
-    if data["played"]:
-        j = max(m["jornada"] for m in data["played"])
-        src = [m for m in data["played"] if m["jornada"] == j]
+    played = data.get("played", [])
+    if played:
+        # ordenar por data (desc) e xornada; amosar os últimos ~15 partidos xogados
+        src = sorted(played, key=lambda x: (x.get("date") or "0000", x["jornada"]))[-15:]
+        src = list(reversed(src))
+        j = src[0]["jornada"] if src else None
     else:
-        # sen partidos xogados: amosamos a primeira xornada do calendario como guía
-        j = min((m["jornada"] for m in data["remaining"]), default=None)
-        src = [m for m in data["remaining"] if m["jornada"] == j]
+        j = min((m["jornada"] for m in data.get("remaining", [])), default=None)
+        src = [m for m in data.get("remaining", []) if m["jornada"] == j]
     matches = [{
+        "jornada": m["jornada"], "date": m.get("date"),
         "home": m["home"], "away": m["away"],
         "home_slug": SLUG_BY_NAME[m["home"]], "away_slug": SLUG_BY_NAME[m["away"]],
         "has_stats": (m["home"], m["away"]) in have,
@@ -1053,6 +1075,33 @@ def admin_set_stats(payload: StatsUpload, user: dict = Depends(require_admin)):
 class RatingsUpload(BaseModel):
     jornada: int
     raw: str            # volcado cru da páxina de estatísticas de xogadores (UDO)
+
+
+@app.get("/api/admin/udo-last-match")
+def admin_udo_last_match(user: dict = Depends(require_admin)):
+    """
+    Devolve o ÚLTIMO partido xogado pola UD Ourense (para asociar correctamente os
+    oRatings). Así non depende dunha 'xornada anterior' abstracta que os aprazamentos
+    poderían descuadrar: os oRatings van sempre ao partido real que xogou a UDO.
+    """
+    data = load()
+    udo_played = [m for m in data.get("played", [])
+                  if "UD Ourense" in (m["home"], m["away"])]
+    if not udo_played:
+        # aínda sen partidos: usar o próximo como referencia informativa
+        upcoming = sorted([m for m in data.get("remaining", [])
+                           if "UD Ourense" in (m["home"], m["away"])],
+                          key=lambda x: (x.get("date") or "9999", x["jornada"]))
+        if upcoming:
+            m = upcoming[0]
+            return {"jornada": m["jornada"], "home": m["home"], "away": m["away"],
+                    "played": False, "date": m.get("date")}
+        return {"jornada": None, "played": False}
+    last = sorted(udo_played, key=lambda x: (x.get("date") or "0000", x["jornada"]))[-1]
+    rival = last["away"] if last["home"] == "UD Ourense" else last["home"]
+    return {"jornada": last["jornada"], "home": last["home"], "away": last["away"],
+            "rival": rival, "played": True, "date": last.get("date"),
+            "score": [last.get("hg"), last.get("ag")]}
 
 
 @app.post("/api/admin/ratings")
