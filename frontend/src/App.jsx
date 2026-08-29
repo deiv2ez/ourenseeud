@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { api } from "./lib/api";
+import Lineup from "./Lineup";
 
 /* ============================================================================
    OURENSE É UD — App unificada (preview navegable, sen login aínda)
@@ -29,7 +30,7 @@ const ZONE = {
 const I18N = {
   gl: {
     tagline: "a nosa vida",
-    nav: { dashboard: "Clasificación", sim: "Simulador", matchday: "Xornada", analysis: "Análise", hub: "UD Ourense", squad: "Plantilla" },
+    nav: { dashboard: "Clasificación", sim: "Simulador", matchday: "Xornada", analysis: "Análise", hub: "UD Ourense", squad: "Plantilla", once: "Once" },
     season: "Tempada 2026-27 · 1ª RFEF · Grupo 1",
     team: "Equipo", pld: "PX", gf: "GF", ga: "GC", gd: "DG", pts: "Ptos", form: "Forma",
     oPts: "oPts", diff: "Δ", xg: "xG",
@@ -77,7 +78,7 @@ const I18N = {
   },
   es: {
     tagline: "a nosa vida",
-    nav: { dashboard: "Clasificación", sim: "Simulador", matchday: "Jornada", analysis: "Análisis", hub: "UD Ourense", squad: "Plantilla" },
+    nav: { dashboard: "Clasificación", sim: "Simulador", matchday: "Jornada", analysis: "Análisis", hub: "UD Ourense", squad: "Plantilla", once: "Once" },
     season: "Temporada 2026-27 · 1ª RFEF · Grupo 1",
     team: "Equipo", pld: "PJ", gf: "GF", ga: "GC", gd: "DG", pts: "Pts", form: "Forma",
     oPts: "oPts", diff: "Δ", xg: "xG",
@@ -286,6 +287,7 @@ export default function App() {
     ["analysis", t.nav.analysis, "◈"],
     ["sim", t.nav.sim, "⇄"],
     ["hub", t.nav.hub, "◆"],
+    ["once", t.nav.once, "⬡"],
     ["squad", t.nav.squad, "◫"],
   ];
 
@@ -357,6 +359,7 @@ export default function App() {
               {section === "analysis" && <Analysis t={t} onTeamClick={setTeamSlug} />}
               {section === "sim" && <Simulator t={t} />}
               {section === "hub" && <CommandCenter t={t} />}
+              {section === "once" && <Lineup t={t} token={null} />}
               {section === "squad" && <Squad t={t} />}
             </>
           )}
@@ -415,6 +418,7 @@ function AdminPanel({ t, onExit }) {
     try {
       const r = await api.login(user.trim(), pass);
       setToken(r.token);
+      try { sessionStorage.setItem("udo_token", r.token); } catch { /* noop */ }
       ok = true;
       // as cargas de datos NON deben tirar o login se algunha falla
       Promise.allSettled([loadNext(r.token), loadPrev(r.token), loadSquad(r.token), loadMatches(r.token)]);
