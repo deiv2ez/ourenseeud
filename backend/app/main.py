@@ -51,12 +51,16 @@ app.add_middleware(
 # ------------------------------------------------------------- utilidades ----
 def load() -> dict:
     """
-    Carga os datos de tempada e INXECTA as cuotas persistidas en Supabase (se hai)
-    nos partidos de 'remaining'. Así as cuotas sobreviven aos reinicios de Render.
-    Se Supabase non está activo, devolve os datos tal cal (coas cuotas do JSON local,
-    se as houber). Calquera fallo de Supabase é silencioso: seguimos sen cuotas.
+    Carga os datos de tempada e INXECTA desde Supabase (se hai):
+      - as cuotas persistidas nos partidos de 'remaining',
+      - os RESULTADOS metidos a man (móvense de 'remaining' a 'played'),
+      - os APRAZAMENTOS (sácanse de 'remaining' a unha lista 'postponed').
+    Así todo sobrevive aos reinicios de Render e os aprazamentos non descuadran
+    nada (razoamos partido a partido, non por xornada completa).
+    Calquera fallo de Supabase é silencioso.
     """
     data = _store_load()
+    data.setdefault("postponed", [])
     try:
         from . import odds_store
         remote = odds_store.load_odds()
@@ -65,6 +69,38 @@ def load() -> dict:
                 key = (m["home"], m["away"])
                 if key in remote:
                     m["odds"] = remote[key]
+    except Exception:
+        pass
+
+    # resultados/aprazamentos manuais (Supabase) → aplicar sobre os datos base
+    try:
+        from . import odds_store
+        results = odds_store.load_results()
+        if results:
+            # índice dos resultados por (home, away)
+            by_key = {(r["home"], r["away"]): r for r in results}
+            new_remaining, moved_played, postponed = [], [], []
+            # partidos xa xogados na fonte base: manter, pero permitir corrección manual
+            played_keys = {(m["home"], m["away"]) for m in data.get("played", [])}
+            for m in data.get("played", []):
+                r = by_key.get((m["home"], m["away"]))
+                if r and r.get("status") == "played" and r.get("hg") is not None:
+                    m = {**m, "hg": r["hg"], "ag": r["ag"]}   # corrección manual
+                moved_played.append(m)
+            # partidos pendentes: mirar se teñen resultado/aprazamento manual
+            for m in data.get("remaining", []):
+                r = by_key.get((m["home"], m["away"]))
+                if not r:
+                    new_remaining.append(m)
+                elif r.get("status") == "postponed":
+                    postponed.append({**m, "postponed": True})
+                elif r.get("status") == "played" and r.get("hg") is not None:
+                    moved_played.append({**m, "hg": r["hg"], "ag": r["ag"]})
+                else:
+                    new_remaining.append(m)
+            data["played"] = moved_played
+            data["remaining"] = new_remaining
+            data["postponed"] = postponed
     except Exception:
         pass
     return data
@@ -763,12 +799,94 @@ def me(user: dict = Depends(current_user)):
 
 @app.post("/api/admin/reload")
 def admin_reload(user: dict = Depends(require_admin)):
-    """Exemplo de ruta protexida só-admin: recarga datos desde a fonte (ingest)."""
+    """
+    Recarga datos desde a API (ingest). Se a API falla (clave, cobertura da categoría,
+    nomes...), NON rompe: avisa e o admin pode seguir metendo resultados a man.
+    """
     from .ingest import run as ingest_run
-    result = ingest_run(real=bool(os.environ.get("API_FOOTBALL_KEY")))
+    has_key = bool(os.environ.get("API_FOOTBALL_KEY"))
+    if not has_key:
+        return {"ok": False, "source": "none",
+                "message": "Non hai API_FOOTBALL_KEY en Render. Podes meter os resultados a man."}
+    try:
+        result = ingest_run(real=True)
+        _cached_sim.cache_clear()
+        return {"ok": True, "by": user["username"], "source": "api",
+                "standings": len(result["standings"]), "played": len(result["played"]),
+                "message": "Resultados actualizados desde a API."}
+    except Exception as exc:
+        # non bloquear: a entrada manual é a rede de seguridade
+        return {"ok": False, "source": "api", "error": str(exc)[:200],
+                "message": ("A API fallou (clave, cobertura da categoría ou nomes dos equipos). "
+                            "Podes meter os resultados a man na pestana Resultados.")}
+
+
+@app.get("/api/admin/matches")
+def admin_list_matches(user: dict = Depends(require_admin)):
+    """
+    Lista os partidos co seu ESTADO para o panel (razoando partido a partido, non por
+    xornada). Devolve: pendentes próximos, xogados recentes (para corrixir) e aprazados.
+    Así o admin mete resultados en calquera orde e os aprazamentos non descuadran nada.
+    """
+    data = load()
+    played = data.get("played", [])
+    remaining = data.get("remaining", [])
+    postponed = data.get("postponed", [])
+
+    def light(m, status):
+        return {"jornada": m["jornada"], "home": m["home"], "away": m["away"],
+                "date": m.get("date"), "hg": m.get("hg"), "ag": m.get("ag"),
+                "status": status}
+
+    # pendentes ordenados por data/xornada (os máis próximos primeiro)
+    pend = sorted(remaining, key=lambda x: (x.get("date") or "", x["jornada"]))
+    # xogados: os últimos por xornada (para corrección)
+    playd = sorted(played, key=lambda x: x["jornada"])
+    return {
+        "pending": [light(m, "pending") for m in pend[:40]],
+        "played": [light(m, "played") for m in playd[-20:]],
+        "postponed": [light(m, "postponed") for m in postponed],
+        "counts": {"pending": len(remaining), "played": len(played), "postponed": len(postponed)},
+    }
+
+
+class ResultEntry(BaseModel):
+    jornada: int
+    home: str
+    away: str
+    hg: int | None = None       # goles local (None se aprazado)
+    ag: int | None = None       # goles visitante
+    status: str = "played"      # "played" | "postponed" | "pending" (borra)
+
+
+@app.post("/api/admin/result")
+def admin_set_result(payload: ResultEntry, user: dict = Depends(require_admin)):
+    """
+    Mete/edita o resultado dun partido, ou márcao como aprazado, ou devólveo a pendente.
+    Persiste en Supabase (sobrevive a reinicios). Non depende do número de xornada:
+    cada partido é independente.
+    """
+    from . import odds_store
+    if not odds_store.enabled():
+        raise HTTPException(400, "Fai falta Supabase configurado para gardar resultados a man.")
+    try:
+        if payload.status == "pending":
+            odds_store.delete_result(payload.jornada, payload.home, payload.away)
+        elif payload.status == "postponed":
+            odds_store.save_result(payload.jornada, payload.home, payload.away,
+                                   None, None, status="postponed")
+        else:  # played
+            if payload.hg is None or payload.ag is None:
+                raise HTTPException(400, "Un partido xogado precisa os dous goles (hg e ag).")
+            odds_store.save_result(payload.jornada, payload.home, payload.away,
+                                   int(payload.hg), int(payload.ag), status="played")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(502, f"Erro gardando o resultado: {exc}")
     _cached_sim.cache_clear()
-    return {"ok": True, "by": user["username"],
-            "standings": len(result["standings"]), "played": len(result["played"])}
+    return {"ok": True, "by": user["username"], "match": f"{payload.home} vs {payload.away}",
+            "status": payload.status}
 
 
 class OddsEntry(BaseModel):

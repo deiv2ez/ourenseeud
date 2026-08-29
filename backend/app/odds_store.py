@@ -235,3 +235,59 @@ def delete_squad_meta(name: str) -> bool:
         r = client.delete(url, headers=_headers())
         r.raise_for_status()
     return True
+
+
+# ---------------------------------------------- resultados por partido -------
+# Cada partido ten estado independente: "played" (con goles) ou "postponed".
+# Isto fai que os aprazamentos e a carga parcial NON descuadren nada: non se
+# razoa por "xornada completa" senón partido a partido.
+RESULTS_TABLE = "match_results"
+
+
+def save_result(jornada: int, home: str, away: str,
+                hg: int | None, ag: int | None, status: str = "played") -> bool:
+    """
+    Garda (upsert) o resultado dun partido. status: "played" (con hg/ag) ou
+    "postponed" (aprazado, sen goles). Clave: jornada+home+away.
+    """
+    if not enabled():
+        return False
+    row = {"jornada": jornada, "home": home, "away": away,
+           "hg": hg, "ag": ag, "status": status}
+    url = f"{SUPABASE_URL}/rest/v1/{RESULTS_TABLE}"
+    headers = {**_headers(), "Prefer": "resolution=merge-duplicates,return=minimal"}
+    with httpx.Client(timeout=15) as client:
+        r = client.post(url, json=[row], headers=headers)
+        r.raise_for_status()
+    return True
+
+
+def delete_result(jornada: int, home: str, away: str) -> bool:
+    """Borra un resultado (para volver a marcalo como pendente)."""
+    if not enabled():
+        return False
+    import urllib.parse
+    q = lambda s: urllib.parse.quote(str(s))
+    url = (f"{SUPABASE_URL}/rest/v1/{RESULTS_TABLE}"
+           f"?jornada=eq.{q(jornada)}&home=eq.{q(home)}&away=eq.{q(away)}")
+    with httpx.Client(timeout=15) as client:
+        r = client.delete(url, headers=_headers())
+        r.raise_for_status()
+    return True
+
+
+def load_results() -> list[dict]:
+    """
+    Le todos os resultados/aprazamentos gardados a man. Devolve lista de
+    {jornada, home, away, hg, ag, status}. Sen Supabase, [].
+    """
+    if not enabled():
+        return []
+    url = f"{SUPABASE_URL}/rest/v1/{RESULTS_TABLE}?select=jornada,home,away,hg,ag,status"
+    try:
+        with httpx.Client(timeout=15) as client:
+            r = client.get(url, headers=_headers())
+            r.raise_for_status()
+            return r.json()
+    except Exception:
+        return []
