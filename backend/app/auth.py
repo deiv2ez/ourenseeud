@@ -56,21 +56,24 @@ def _save_users(users: dict) -> None:
 
 # ----------------------------------------------------------- xestión --------
 def create_user(username: str, password: str, role: str = "user") -> None:
-    """Crea (ou actualiza) un usuario co contrasinal hasheado."""
+    """Crea (ou actualiza) un usuario co contrasinal hasheado.
+    Límpanse espazos accidentais (típicos ao pegar en Render) para que non rompan
+    o login. Faise IGUAL aquí e en verify_login para que o hash coincida."""
     users = _load_users()
-    users[username.lower()] = {
-        "username": username.lower(),
-        "hash": _hash_password(password),
+    users[username.strip().lower()] = {
+        "username": username.strip().lower(),
+        "hash": _hash_password(password.strip()),
         "role": role,  # "admin" | "user"
     }
     _save_users(users)
 
 
 def verify_login(username: str, password: str) -> dict | None:
-    """Comproba credenciais. Devolve o usuario (sen hash) se son válidas."""
+    """Comproba credenciais. Devolve o usuario (sen hash) se son válidas.
+    Límpanse espazos igual que en create_user."""
     users = _load_users()
-    u = users.get(username.lower())
-    if not u or not _check_password(password, u["hash"]):
+    u = users.get(username.strip().lower())
+    if not u or not _check_password(password.strip(), u["hash"]):
         return None
     return {"username": u["username"], "role": u["role"]}
 

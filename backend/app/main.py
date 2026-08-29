@@ -1227,6 +1227,30 @@ def _report_keys_for(rival_xg: dict, rival_s: dict, seed: int = 0) -> list[str]:
         print(f"[startup] usuario admin '{admin_user}' asegurado")
 
 
+@app.get("/api/admin/health")
+def admin_health():
+    """
+    Diagnóstico do login (NON revela o contrasinal). Serve para saber por que falla
+    o acceso admin: se as variables de entorno están postas e se o usuario existe.
+    Abrir en: <api>/api/admin/health
+    """
+    from .auth import _load_users
+    env_user = os.environ.get("ADMIN_USER")
+    env_pass_set = bool(os.environ.get("ADMIN_PASSWORD"))
+    users = _load_users()
+    admin_names = [u for u, d in users.items() if d.get("role") == "admin"]
+    return {
+        "env_ADMIN_USER_set": bool(env_user),
+        "env_ADMIN_USER_value": env_user or None,   # o usuario non é secreto
+        "env_ADMIN_PASSWORD_set": env_pass_set,
+        "users_file_exists": bool(users),
+        "admin_users_registered": admin_names,
+        "hint": ("Se env_ADMIN_*_set é False, define ADMIN_USER e ADMIN_PASSWORD en Render. "
+                 "Se están postas pero admin_users_registered está baleiro, reinicia o servizo. "
+                 "Login: usa exactamente o valor de ADMIN_USER e ADMIN_PASSWORD (sen espazos)."),
+    }
+
+
 @app.get("/")
 def root():
     return {"app": "Ourense é UD", "docs": "/docs"}
