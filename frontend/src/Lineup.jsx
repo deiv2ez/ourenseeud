@@ -43,6 +43,7 @@ export default function Lineup({ t, token: tokenProp }) {
   const [squad, setSquad] = useState([]);
   const [loading, setLoading] = useState(true);
   const [picking, setPicking] = useState(null); // índice do slot a asignar
+  const [search, setSearch] = useState("");      // buscador do banco
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -94,7 +95,15 @@ export default function Lineup({ t, token: tokenProp }) {
 
   // jugadores no campo (nomes ocupados)
   const usedNames = new Set(onField.map((p) => p.name).filter(Boolean));
-  const bench = squad.filter((p) => !usedNames.has(p.name));
+  const bench = squad
+    .filter((p) => !usedNames.has(p.name))
+    .filter((p) => {
+      if (!search.trim()) return true;
+      const q = search.toLowerCase();
+      return (p.display || p.name || "").toLowerCase().includes(q)
+          || (p.name || "").toLowerCase().includes(q)
+          || String(p.dorsal ?? "").includes(q);
+    });
 
   const assign = (player) => {
     if (picking == null) return;
@@ -102,6 +111,7 @@ export default function Lineup({ t, token: tokenProp }) {
       ? { ...p, name: player.name, display: player.display || player.name, oRating: null }
       : p));
     setPicking(null);
+    setSearch("");
   };
 
   const clearSlot = (i) => setOnField((prev) => prev.map((p, j) =>
@@ -192,7 +202,10 @@ export default function Lineup({ t, token: tokenProp }) {
               <div className="mb-2 text-[10px] font-bold uppercase text-neutral-400">
                 {picking != null ? "Elixe xogador para o oco" : "Banco"}
               </div>
-              <div className="max-h-[340px] space-y-1 overflow-y-auto">
+              <input value={search} onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar xogador…"
+                className="mb-2 w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm" />
+              <div className="max-h-[320px] space-y-1 overflow-y-auto">
                 {bench.map((p) => (
                   <button key={p.name} onClick={() => assign(p)} disabled={picking == null}
                     className={`tap flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm ${picking != null ? "bg-neutral-50 hover:bg-red-50" : "opacity-60"}`}>
@@ -203,7 +216,7 @@ export default function Lineup({ t, token: tokenProp }) {
                     <span className="text-[10px] uppercase text-neutral-400">{p.pos}</span>
                   </button>
                 ))}
-                {bench.length === 0 && <p className="text-xs text-neutral-400">Todos no campo.</p>}
+                {bench.length === 0 && <p className="text-xs text-neutral-400">{search ? "Sen resultados." : "Todos no campo."}</p>}
               </div>
             </div>
           )}
@@ -223,29 +236,39 @@ export default function Lineup({ t, token: tokenProp }) {
   );
 }
 
-/* ---------- Campo 3D con nodos contra-rotados ---------- */
+/* ---------- Campo 3D: céspede inclinado + nodos nunha capa plana superposta ----------
+   Os nodos NON están dentro da capa inclinada (evita que queden "tumbados"). Van nunha
+   capa á parte, frontal á cámara. Para que caian sobre o punto correcto do campo
+   inclinado, comprimimos a coordenada vertical (o rotateX acurta o eixo Y en pantalla). */
 function Pitch({ onField, isPast, onSlotClick, pickingIndex }) {
+  // factor de compresión vertical aparente por rotateX(35deg): cos(35º) ≈ 0.82.
+  // Mapeamos y∈[0,100] (fondo propio→área rival) a unha franxa vertical máis estreita e
+  // desprazada cara arriba, imitando a perspectiva sen inclinar os nodos.
+  const projectTop = (y) => {
+    const top = 100 - y;                 // 0 arriba (rival), 100 abaixo (propia)
+    // comprimir cara ao centro-arriba: os de arriba xúntanse (máis lonxe da cámara)
+    return 8 + top * 0.86;               // 8%..94% aprox., lixeiro sesgo superior
+  };
   return (
-    <div style={{ perspective: "800px" }} className="mx-auto w-full max-w-[520px]">
-      <div style={{
-        transform: "rotateX(35deg)",
-        transformStyle: "preserve-3d",
-        transformOrigin: "center center",
-        aspectRatio: "3 / 4",
-        position: "relative",
-        borderRadius: 10,
-        overflow: "hidden",
-        // franxas de céspede sutís e desaturadas
-        backgroundImage: "repeating-linear-gradient(0deg, #81C784 0, #81C784 10%, #66BB6A 10%, #66BB6A 20%)",
-        boxShadow: "0 24px 40px -18px rgba(0,0,0,0.35)",
-      }}>
-        {/* liñas do campo (trazos brancos finos e semitransparentes) */}
-        <PitchLines />
-        {/* nodos */}
-        {onField.map((p, i) => (
-          <PlayerNode key={i} p={p} isPast={isPast} picking={pickingIndex === i}
-            onClick={() => onSlotClick(i)} />
-        ))}
+    <div style={{ perspective: "1100px" }} className="mx-auto w-full max-w-[540px]">
+      <div style={{ position: "relative", aspectRatio: "3 / 4" }}>
+        {/* CAPA 1: céspede inclinado (só fondo, sen nodos) */}
+        <div style={{
+          position: "absolute", inset: 0,
+          transform: "rotateX(35deg)", transformOrigin: "center 42%",
+          borderRadius: 10, overflow: "hidden",
+          backgroundImage: "repeating-linear-gradient(0deg, #81C784 0, #81C784 10%, #66BB6A 10%, #66BB6A 20%)",
+          boxShadow: "0 24px 40px -18px rgba(0,0,0,0.35)",
+        }}>
+          <PitchLines />
+        </div>
+        {/* CAPA 2: nodos, plana e frontal á cámara */}
+        <div style={{ position: "absolute", inset: 0 }}>
+          {onField.map((p, i) => (
+            <PlayerNode key={i} p={p} isPast={isPast} picking={pickingIndex === i}
+              top={projectTop(p.y)} left={p.x} onClick={() => onSlotClick(i)} />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -271,47 +294,49 @@ function PitchLines() {
   );
 }
 
-function PlayerNode({ p, isPast, picking, onClick }) {
+function PlayerNode({ p, isPast, picking, top, left, onClick }) {
   const empty = !p.name;
-  // Y do backend: 0 = portería propia (abaixo), 100 = área rival (arriba).
-  // No CSS, top=0 é arriba → invertimos: top = 100 - y.
-  const top = 100 - p.y;
-  const left = p.x;
   return (
     <div onClick={onClick}
       style={{
         position: "absolute", left: `${left}%`, top: `${top}%`,
-        transform: "translate(-50%, -50%) rotateX(-35deg)",  // contra-rota para quedar "de pé"
-        transformOrigin: "center center",
+        // capa plana: só centramos. Sen rotateX → totalmente frontal á cámara.
+        transform: "translate(-50%, -50%)",
         cursor: isPast ? "default" : "pointer",
         zIndex: Math.round(top),
+        // nitidez do texto: forzar renderizado en capa propia sen suavizado raro
+        willChange: "transform",
       }}>
-      <div className="flex flex-col items-center gap-0.5">
+      <div className="flex flex-col items-center gap-1">
         {empty ? (
           <div className="grid place-items-center rounded-full border-2 border-dashed"
-            style={{ width: 34, height: 34, borderColor: picking ? RED : "rgba(120,120,120,0.7)",
-                     background: "rgba(255,255,255,0.15)", color: picking ? RED : "#777" }}>
-            <span className="text-lg leading-none">+</span>
+            style={{ width: 44, height: 44, borderColor: picking ? RED : "rgba(120,120,120,0.75)",
+                     background: "rgba(255,255,255,0.12)", color: picking ? RED : "#777" }}>
+            <span className="text-2xl leading-none">+</span>
           </div>
         ) : (
           <div className="relative">
-            {/* ficha: círculo branco co dorsal / camiseta abstracta */}
-            <div className="grid place-items-center rounded-full bg-white shadow"
-              style={{ width: 34, height: 34, border: `2px solid ${RED}` }}>
-              <ShirtIcon />
-            </div>
+            {/* camiseta: PNG personalizado (camiseta.png). Fallback a SVG abstracto. */}
+            <Shirt />
             {/* badge de oRating (só pasados) */}
             {isPast && p.oRating != null && (
-              <span className="absolute -right-2 -top-2 grid place-items-center rounded-full text-[9px] font-black text-white shadow"
-                style={{ width: 18, height: 18, backgroundColor: ratingColor(p.oRating) }}>
+              <span className="absolute -right-1.5 -top-1.5 grid place-items-center rounded-full text-[10px] font-black text-white"
+                style={{ width: 21, height: 21, backgroundColor: ratingColor(p.oRating),
+                         boxShadow: "0 1px 3px rgba(0,0,0,0.35)" }}>
                 {p.oRating.toFixed(1)}
               </span>
             )}
           </div>
         )}
         {!empty && (
-          <span className="rounded bg-black/55 px-1 text-[9px] font-bold leading-tight text-white"
-            style={{ maxWidth: 72, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <span style={{
+            maxWidth: 92, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+            fontSize: 12, fontWeight: 800, lineHeight: 1.1, color: "#fff",
+            padding: "1px 5px", borderRadius: 4, background: "rgba(0,0,0,0.6)",
+            // nitidez: evitar subpíxel borroso ao centrar
+            transform: "translateZ(0)",
+            textShadow: "0 1px 1px rgba(0,0,0,0.4)",
+          }}>
             {shortName(p.display, p.name)}
           </span>
         )}
@@ -320,9 +345,19 @@ function PlayerNode({ p, isPast, picking, onClick }) {
   );
 }
 
-function ShirtIcon() {
+/* Camiseta: intenta cargar /camiseta.png; se non existe, cae a un SVG abstracto.
+   Tamaño ~+35% respecto á versión anterior (de 34 a 46px). */
+function Shirt() {
+  const [ok, setOk] = useState(true);
+  const size = 46;
+  if (ok) {
+    return <img src="/camiseta.png" alt="" onError={() => setOk(false)}
+      style={{ width: size, height: size, objectFit: "contain",
+               filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.3))" }} draggable={false} />;
+  }
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill={RED} aria-hidden>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={RED} aria-hidden
+      style={{ filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.3))" }}>
       <path d="M9 2 L4 5 L6 9 L8 8 V21 H16 V8 L18 9 L20 5 L15 2 C14 3.5 10 3.5 9 2 Z" />
     </svg>
   );
