@@ -508,11 +508,11 @@ def team_profile(slug: str):
             "date": nm.get("date"), "is_home": is_home,
             "likely_score": p["likely_score"],
             "oGoals_home": p["oGoals_home"], "oGoals_away": p["oGoals_away"],
-            # perspectiva LOCAL-EMPATE-VISITANTE (igual que a sección Xornada),
-            # para que o mesmo partido se vexa idéntico nos dous sitios.
-            "p_home": round(p["home_win"] * 100),
+            # PERSPECTIVA DO EQUIPO da ficha: vitoria / empate / derrota (o usuario
+            # quere ver o punto de vista de cada equipo, mesmo indo de visitante).
+            "p_win": round((p["home_win"] if is_home else p["away_win"]) * 100),
             "p_draw": round(p["draw"] * 100),
-            "p_away": round(p["away_win"] * 100),
+            "p_loss": round((p["away_win"] if is_home else p["home_win"]) * 100),
         }
 
     # calendario: xogados (con resultado) + pendentes
@@ -1060,8 +1060,157 @@ def player_detail(name: str):
     return {"name": name, "games": n, "stats": stats}
 
 
-@app.on_event("startup")
-def _ensure_admin():
+@app.get("/api/report/next")
+def report_next(team: str = "UD Ourense"):
+    """
+    Xera o informe técnico previo ao próximo partido da UDO en PDF (2 páxinas).
+    Recompila datos reais: predición, xG do rival e da UDO, oRatings dos xogadores,
+    contexto casa/fóra. Devolve o PDF como descarga.
+    """
+    from fastapi.responses import Response
+    from pathlib import Path
+    from . import odds_store, xg_analysis
+    from .report import build_report
+
+    data_all = load()
+    if team not in NAMES:
+        raise HTTPException(404, "Equipo descoñecido")
+    upcoming = [m for m in sorted(data_all["remaining"], key=lambda x: x["jornada"])
+                if team in (m["home"], m["away"])]
+    if not upcoming:
+        raise HTTPException(404, "Non hai próximo partido")
+    m = upcoming[0]
+    model = _fit_model(data_all)
+    is_home = m["home"] == team
+    rival = m["away"] if is_home else m["home"]
+    p = model.match_probs(m["home"], m["away"], odds=m.get("odds"))
+
+    # xG agregado (se hai estatísticas)
+    stats_rows = odds_store.load_stats()
+    udo_xg = xg_analysis.team_xg_stats(team, stats_rows, data_all["played"]) or {}
+    rival_xg = xg_analysis.team_xg_stats(rival, stats_rows, data_all["played"]) or {}
+
+    # clasificación para goles reais a favor/contra
+    standings = {r["team"]: r for r in _standings(data_all)}
+    udo_s = standings.get(team, {})
+    rival_s = standings.get(rival, {})
+
+    # oRatings dos nosos xogadores (con apodo/posición do squad_meta se existe)
+    ratings = odds_store.load_ratings()
+    meta_rows = odds_store.load_squad_meta()
+
+    def _norm(s):
+        return (s or "").lower().strip()
+
+    meta_by_name = {_norm(mm["name"]): mm for mm in meta_rows}
+    # tamén cargamos o squad.json base para a posición por defecto
+    from pathlib import Path as _Path
+    import json as _json
+    squad_file = _Path(__file__).resolve().parent.parent / "data" / "squad.json"
+    base_squad = _json.loads(squad_file.read_text(encoding="utf-8")) if squad_file.exists() else []
+    base_by_name = {_norm(p["name"]): p for p in base_squad}
+
+    def display_name(name):
+        m = meta_by_name.get(_norm(name))
+        if m and m.get("nick"):
+            return m["nick"]
+        return name
+
+    def display_pos(name, fallback):
+        m = meta_by_name.get(_norm(name))
+        if m and m.get("pos"):
+            return m["pos"]
+        b = base_by_name.get(_norm(name))
+        if b and b.get("pos"):
+            return b["pos"]
+        return fallback
+
+    by_player = {}
+    for r in ratings:
+        by_player.setdefault(r["player"], []).append(r)
+    players = []
+    for name, recs in by_player.items():
+        vals = [x["orating"] for x in recs if x.get("orating") is not None]
+        if vals:
+            last = sorted(recs, key=lambda x: x["jornada"])[-2:]
+            players.append({
+                "name": display_name(name),
+                "pos": display_pos(name, recs[-1].get("pos", "—")),
+                "oRating": round(sum(vals) / len(vals), 1),
+                "form_txt": " · ".join(str(x["orating"]) for x in last),
+                "_avg": sum(vals) / len(vals),
+            })
+    players.sort(key=lambda x: -x["_avg"])
+
+    pw = round((p["home_win"] if is_home else p["away_win"]) * 100)
+    pl = round((p["away_win"] if is_home else p["home_win"]) * 100)
+    def lbl_finish(s):
+        d = s.get("off_diff", 0)
+        return "Sobresaínte" if d >= 2 else "Escasa (xera máis do que marca)" if d <= -2 else "Axustada"
+
+    def lbl_def(s):
+        d = s.get("def_diff", 0)
+        return "Sólida" if d >= 2 else "Permisiva" if d <= -2 else "Correcta"
+
+    from . import report_copy as rc
+    seed = m["jornada"]   # mesmo partido → mesmo informe; xornadas distintas varían
+
+    data = {
+        "jornada": m["jornada"], "home": m["home"], "away": m["away"], "is_home": is_home,
+        "venue_label": "En casa" if is_home else "Fóra",
+        "venue_place": ("no Couto" if is_home else "a domicilio"),
+        "venue_context": ("O Couto" if is_home else "a domicilio"),
+        "p_win": pw, "p_draw": round(p["draw"] * 100), "p_loss": pl,
+        "expected_score": p["likely_score"],
+        "og_home": p["oGoals_home"], "og_away": p["oGoals_away"],
+        "og_home_label": m["home"], "og_away_label": m["away"],
+        "favor_text": rc.favor_text(pw, pl, seed),
+        "venue_text": rc.venue_text(is_home, seed),
+        "rival": {
+            "gf": rival_s.get("gf", "—"), "ga": rival_s.get("ga", "—"),
+            "xgf": rival_xg.get("xgf", "—"), "xga": rival_xg.get("xga", "—"),
+            "form_label": "".join(rival_s.get("form", [])[-4:]) or "—",
+        },
+        "udo": {
+            "gf": udo_s.get("gf", "—"), "ga": udo_s.get("ga", "—"),
+            "xgf": udo_xg.get("xgf", "—"),
+            "finish_label": lbl_finish(udo_xg), "defense_label": lbl_def(udo_xg),
+        },
+        "players": players,
+        "keys_for": _report_keys_for(rival_xg, rival_s, seed),
+        "keys_against": rc.keys_against(seed),
+        "venue_analysis": rc.venue_analysis(is_home, seed),
+        "scenario_lead": rc.scenario_lead(seed),
+        "scenario_behind": rc.scenario_behind(seed),
+        "advice": rc.advice(seed),
+    }
+
+    logo = Path(__file__).resolve().parent.parent.parent / "frontend" / "public" / "escudos" / "logo.png"
+    pdf = build_report(data, logo_path=str(logo) if logo.exists() else None)
+
+    def _slugify(s):
+        import unicodedata, re as _re
+        s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
+        return _re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
+
+    fname = f"informe-j{m['jornada']}-{_slugify(m['home'])}-{_slugify(m['away'])}.pdf"
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
+def _report_keys_for(rival_xg: dict, rival_s: dict, seed: int = 0) -> list[str]:
+    """Xera as claves ofensivas segundo as debilidades do rival (datos + variantes)."""
+    from . import report_copy as rc
+    keys = []
+    if rival_xg.get("def_diff", 0) <= -1.5 or (rival_s.get("ga") or 0) >= 2:
+        keys.append(rc._pick(rc.KEY_RIVAL_CONCEDE, seed))
+    if rival_xg.get("xga", 0) and rival_xg.get("xga", 0) >= 1.5:
+        keys.append(rc._pick(rc.KEY_RIVAL_XGA, seed))
+    keys.append(rc._pick(rc.KEY_FINISH, seed))
+    return keys[:3]
+
+
+
     """
     Crea/actualiza o usuario admin ao arrancar, lendo de variables de entorno.
     Isto resolve dúas cousas no plan gratuíto de Render:
