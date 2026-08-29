@@ -237,28 +237,32 @@ export default function Lineup({ t, token: tokenProp }) {
 }
 
 /* ---------- Campo 3D: céspede inclinado + nodos nunha capa plana superposta ----------
-   Os nodos NON están dentro da capa inclinada (evita que queden "tumbados"). Van nunha
-   capa á parte, frontal á cámara. Para que caian sobre o punto correcto do campo
-   inclinado, comprimimos a coordenada vertical (o rotateX acurta o eixo Y en pantalla). */
+   O céspede vai INCLINADO (perspectiva de cámara de TV). Os nodos van nunha capa á parte,
+   plana e frontal á cámara, para non quedar "tumbados". O mapeo projectTop comprime o eixo
+   Y para que os nodos caian sobre o punto correcto do campo inclinado. */
 function Pitch({ onField, isPast, onSlotClick, pickingIndex }) {
-  // factor de compresión vertical aparente por rotateX(35deg): cos(35º) ≈ 0.82.
-  // Mapeamos y∈[0,100] (fondo propio→área rival) a unha franxa vertical máis estreita e
-  // desprazada cara arriba, imitando a perspectiva sen inclinar os nodos.
+  // O rotateX inclina o campo: a parte de arriba (rival) vai máis lonxe/comprimida e a de
+  // abaixo (propia) máis preto/ancha. Reproducimos ese sesgo no posicionamento dos nodos:
+  //  - top de arriba (rival) empeza máis abaixo do bordo (o campo "afúndese" ao lonxe)
+  //  - o rango comprímese arriba e ábrese abaixo.
   const projectTop = (y) => {
-    const top = 100 - y;                 // 0 arriba (rival), 100 abaixo (propia)
-    // comprimir cara ao centro-arriba: os de arriba xúntanse (máis lonxe da cámara)
-    return 8 + top * 0.86;               // 8%..94% aprox., lixeiro sesgo superior
+    const top = 100 - y;           // 0 = área rival (arriba), 100 = área propia (abaixo)
+    // curva suave: arriba xúntanse, abaixo sepáranse (imita a perspectiva)
+    const t = top / 100;
+    const eased = t * t * 0.45 + t * 0.5;   // 0..~0.95
+    return 6 + eased * 90;                    // 6%..~92%
   };
   return (
-    <div style={{ perspective: "1100px" }} className="mx-auto w-full max-w-[540px]">
-      <div style={{ position: "relative", aspectRatio: "3 / 4" }}>
-        {/* CAPA 1: céspede inclinado (só fondo, sen nodos) */}
+    <div style={{ perspective: "760px", perspectiveOrigin: "center 30%" }}
+      className="mx-auto w-full max-w-[560px]">
+      <div style={{ position: "relative", aspectRatio: "3 / 4", transformStyle: "preserve-3d" }}>
+        {/* CAPA 1: céspede INCLINADO (só fondo) */}
         <div style={{
           position: "absolute", inset: 0,
-          transform: "rotateX(35deg)", transformOrigin: "center 42%",
+          transform: "rotateX(38deg)", transformOrigin: "center bottom",
           borderRadius: 10, overflow: "hidden",
           backgroundImage: "repeating-linear-gradient(0deg, #81C784 0, #81C784 10%, #66BB6A 10%, #66BB6A 20%)",
-          boxShadow: "0 24px 40px -18px rgba(0,0,0,0.35)",
+          boxShadow: "0 30px 50px -20px rgba(0,0,0,0.4)",
         }}>
           <PitchLines />
         </div>
@@ -310,9 +314,9 @@ function PlayerNode({ p, isPast, picking, top, left, onClick }) {
       <div className="flex flex-col items-center gap-1">
         {empty ? (
           <div className="grid place-items-center rounded-full border-2 border-dashed"
-            style={{ width: 44, height: 44, borderColor: picking ? RED : "rgba(120,120,120,0.75)",
+            style={{ width: 56, height: 56, borderColor: picking ? RED : "rgba(120,120,120,0.75)",
                      background: "rgba(255,255,255,0.12)", color: picking ? RED : "#777" }}>
-            <span className="text-2xl leading-none">+</span>
+            <span className="text-3xl leading-none">+</span>
           </div>
         ) : (
           <div className="relative">
@@ -330,9 +334,9 @@ function PlayerNode({ p, isPast, picking, top, left, onClick }) {
         )}
         {!empty && (
           <span style={{
-            maxWidth: 92, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-            fontSize: 12, fontWeight: 800, lineHeight: 1.1, color: "#fff",
-            padding: "1px 5px", borderRadius: 4, background: "rgba(0,0,0,0.6)",
+            maxWidth: 104, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+            fontSize: 14, fontWeight: 800, lineHeight: 1.1, color: "#fff",
+            padding: "1px 6px", borderRadius: 4, background: "rgba(0,0,0,0.6)",
             // nitidez: evitar subpíxel borroso ao centrar
             transform: "translateZ(0)",
             textShadow: "0 1px 1px rgba(0,0,0,0.4)",
@@ -349,15 +353,15 @@ function PlayerNode({ p, isPast, picking, top, left, onClick }) {
    Tamaño ~+35% respecto á versión anterior (de 34 a 46px). */
 function Shirt() {
   const [ok, setOk] = useState(true);
-  const size = 46;
+  const size = 60;
   if (ok) {
     return <img src="/camiseta.png" alt="" onError={() => setOk(false)}
       style={{ width: size, height: size, objectFit: "contain",
-               filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.3))" }} draggable={false} />;
+               filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.32))" }} draggable={false} />;
   }
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill={RED} aria-hidden
-      style={{ filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.3))" }}>
+      style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.32))" }}>
       <path d="M9 2 L4 5 L6 9 L8 8 V21 H16 V8 L18 9 L20 5 L15 2 C14 3.5 10 3.5 9 2 Z" />
     </svg>
   );
