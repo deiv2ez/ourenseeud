@@ -303,12 +303,33 @@ def objectives(team: str = "UD Ourense", n_sims: int = Query(10000, ge=1000, le=
         n = max(0, target - cur)
         return {"threshold": target, "need": n,
                 "reachable": n <= remaining_games * 3}
+
+    # estatísticas do modelo (Monte Carlo): probabilidade de cada obxectivo e posición
+    # media proxectada. Reutiliza a simulación que xa corre a app.
+    model_stats = None
+    try:
+        sim = model.simulate(data.get("played", []), data.get("remaining", []), n_sims=n_sims)
+        if team in sim:
+            s = sim[team]
+            model_stats = {
+                "p_champion": s.get("pChamp", 0),
+                "p_playoff": s.get("pPO", 0),
+                "p_safety": round(100 - s.get("pRel", 0), 1),   # prob. de NON descender
+                "proj_pos": s.get("avgPos"),
+                "pos_best": s.get("posBest"),
+                "pos_worst": s.get("posWorst"),
+                "oPts": s.get("oPts"),
+            }
+    except Exception:
+        model_stats = None
+
     return {
         "team": team, "slug": SLUG_BY_NAME[team],
         "current_pts": cur, "played": played, "remaining": remaining_games,
         "champion": need(thr["champion"]),
         "playoff": need(thr["playoff"]),
         "safety": need(thr["safety"]),
+        "model": model_stats,
     }
 
 
