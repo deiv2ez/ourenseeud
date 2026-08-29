@@ -1396,6 +1396,137 @@ def _report_keys_for(rival_xg: dict, rival_s: dict, seed: int = 0) -> list[str]:
     return keys[:3]
 
 
+# =========================== ONCE INICIAL (aliñacións) =======================
+
+@app.get("/api/lineup/formations")
+def lineup_formations():
+    """Devolve as formacións dispoñibles coas coordenadas (X,Y en %) de cada slot."""
+    from .formations import FORMATIONS
+    return {"formations": FORMATIONS}
+
+
+@app.get("/api/lineup/matchdays")
+def lineup_matchdays():
+    """
+    Lista as xornadas relevantes para o once: as XOGADAS pola UDO (con rival e marcador)
+    e a PRÓXIMA. Indica cales xa teñen aliñación gardada.
+    """
+    data = load()
+    from . import odds_store
+    saved = {l["jornada"] for l in odds_store.load_all_lineups()}
+
+    def udo_side(m):
+        is_home = m["home"] == "UD Ourense"
+        rival = m["away"] if is_home else m["home"]
+        return is_home, rival
+
+    played = []
+    for m in sorted([x for x in data.get("played", []) if "UD Ourense" in (x["home"], x["away"])],
+                    key=lambda x: x["jornada"]):
+        is_home, rival = udo_side(m)
+        played.append({"jornada": m["jornada"], "rival": rival, "is_home": is_home,
+                       "rival_slug": SLUG_BY_NAME.get(rival), "score": [m.get("hg"), m.get("ag")],
+                       "has_lineup": m["jornada"] in saved, "kind": "played"})
+    upcoming = sorted([x for x in data.get("remaining", []) if "UD Ourense" in (x["home"], x["away"])],
+                      key=lambda x: (x.get("date") or "9999", x["jornada"]))
+    nxt = None
+    if upcoming:
+        m = upcoming[0]
+        is_home, rival = udo_side(m)
+        nxt = {"jornada": m["jornada"], "rival": rival, "is_home": is_home,
+               "rival_slug": SLUG_BY_NAME.get(rival), "date": m.get("date"),
+               "has_lineup": m["jornada"] in saved, "kind": "next"}
+    return {"played": played, "next": nxt}
+
+
+@app.get("/api/lineup/{jornada}")
+def get_lineup(jornada: int):
+    """
+    Devolve a aliñación gardada dunha xornada (formación + xogadores colocados). Se é
+    unha xornada xogada, engade o oRating de cada xogador (co seu nome DISPLAY/apodo).
+    Se non hai aliñación gardada, devolve os slots baleiros da formación por defecto.
+    """
+    from . import odds_store
+    from .formations import FORMATIONS
+    data = load()
+
+    # contexto do partido
+    match = next((m for m in data.get("played", []) + data.get("remaining", [])
+                  if m["jornada"] == jornada and "UD Ourense" in (m["home"], m["away"])), None)
+    ctx = None
+    if match:
+        is_home = match["home"] == "UD Ourense"
+        rival = match["away"] if is_home else match["home"]
+        ctx = {"jornada": jornada, "rival": rival, "rival_slug": SLUG_BY_NAME.get(rival),
+               "is_home": is_home, "score": [match.get("hg"), match.get("ag")]
+               if "hg" in match else None}
+
+    saved = odds_store.load_lineup(jornada)
+
+    # oRatings desa xornada + apodos (display)
+    ratings = odds_store.load_ratings()
+    meta = {mm["name"].lower().strip(): mm for mm in odds_store.load_squad_meta()}
+    orating_by = {}
+    for r in ratings:
+        if r["jornada"] == jornada and r.get("orating") is not None:
+            orating_by[r["player"].lower().strip()] = r["orating"]
+
+    def display_of(name):
+        m = meta.get((name or "").lower().strip())
+        return (m.get("nick") if m and m.get("nick") else name)
+
+    if saved:
+        players = saved["players"]
+        for p in players:
+            key = (p.get("name") or "").lower().strip()
+            p["display"] = display_of(p.get("name"))
+            if key in orating_by:
+                p["oRating"] = orating_by[key]
+        return {"formation": saved["formation"], "players": players,
+                "context": ctx, "saved": True}
+
+    # sen aliñación: slots baleiros da formación por defecto
+    formation = "4-2-3-1"
+    slots = [{"x": s["x"], "y": s["y"], "role": s["role"], "name": None, "display": None}
+             for s in FORMATIONS[formation]]
+    return {"formation": formation, "players": slots, "context": ctx, "saved": False}
+
+
+class LineupPlayer(BaseModel):
+    name: str | None = None    # nome canónico (Sofascore/squad) ou None se baleiro
+    x: float
+    y: float
+    role: str | None = None
+
+
+class LineupUpload(BaseModel):
+    jornada: int
+    formation: str
+    players: list[LineupPlayer]
+
+
+@app.post("/api/admin/lineup")
+def admin_save_lineup(payload: LineupUpload, user: dict = Depends(require_admin)):
+    """Garda a aliñación dunha xornada (só admin). Persiste en Supabase."""
+    from . import odds_store
+    if not odds_store.enabled():
+        raise HTTPException(400, "Fai falta Supabase para gardar aliñacións.")
+    data = load()
+    match = next((m for m in data.get("played", []) + data.get("remaining", [])
+                  if m["jornada"] == payload.jornada and "UD Ourense" in (m["home"], m["away"])), None)
+    is_home = (match["home"] == "UD Ourense") if match else None
+    rival = None
+    if match:
+        rival = match["away"] if is_home else match["home"]
+    players = [p.model_dump() for p in payload.players]
+    try:
+        odds_store.save_lineup(payload.jornada, payload.formation, players, is_home, rival)
+    except Exception as exc:
+        raise HTTPException(502, f"Erro gardando a aliñación: {exc}")
+    return {"ok": True, "by": user["username"], "jornada": payload.jornada,
+            "formation": payload.formation, "count": len(players)}
+
+
 @app.on_event("startup")
 def _ensure_admin():
     """

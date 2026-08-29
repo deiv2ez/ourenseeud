@@ -291,3 +291,63 @@ def load_results() -> list[dict]:
             return r.json()
     except Exception:
         return []
+
+
+# ------------------------------------------------- aliñacións (once inicial) --
+# Garda o once por xornada: formación + lista de jugadores coa súa posición no campo.
+# Estrutura players: [{"name","x","y","slot"}], onde x/y son % dentro do campo.
+LINEUP_TABLE = "lineups"
+
+
+def save_lineup(jornada: int, formation: str, players: list[dict],
+                is_home: bool | None = None, rival: str | None = None) -> bool:
+    """Garda (upsert) a aliñación dunha xornada. Clave: jornada."""
+    if not enabled():
+        return False
+    import json as _json
+    row = {"jornada": jornada, "formation": formation,
+           "players": _json.dumps(players),
+           "is_home": is_home, "rival": rival}
+    url = f"{SUPABASE_URL}/rest/v1/{LINEUP_TABLE}"
+    headers = {**_headers(), "Prefer": "resolution=merge-duplicates,return=minimal"}
+    with httpx.Client(timeout=15) as client:
+        r = client.post(url, json=[row], headers=headers)
+        r.raise_for_status()
+    return True
+
+
+def load_lineup(jornada: int) -> dict | None:
+    """Le a aliñación dunha xornada. None se non existe."""
+    if not enabled():
+        return None
+    url = (f"{SUPABASE_URL}/rest/v1/{LINEUP_TABLE}"
+           f"?jornada=eq.{jornada}&select=jornada,formation,players,is_home,rival")
+    try:
+        import json as _json
+        with httpx.Client(timeout=15) as client:
+            r = client.get(url, headers=_headers())
+            r.raise_for_status()
+            rows = r.json()
+            if not rows:
+                return None
+            row = rows[0]
+            p = row.get("players")
+            if isinstance(p, str):
+                row["players"] = _json.loads(p)
+            return row
+    except Exception:
+        return None
+
+
+def load_all_lineups() -> list[dict]:
+    """Le todas as aliñacións gardadas (para saber que xornadas teñen once)."""
+    if not enabled():
+        return []
+    url = f"{SUPABASE_URL}/rest/v1/{LINEUP_TABLE}?select=jornada,formation,is_home,rival"
+    try:
+        with httpx.Client(timeout=15) as client:
+            r = client.get(url, headers=_headers())
+            r.raise_for_status()
+            return r.json()
+    except Exception:
+        return []
