@@ -1619,7 +1619,7 @@ function Matchday({ t }) {
                     <div className="text-[9px] uppercase tracking-wide text-neutral-400">{t.mdOGoals}</div>
                     {m.likely_1x2 && (
                       <div className="mt-1 rounded-full px-2 py-0.5 text-[10px] font-black text-white"
-                        style={{ backgroundColor: m.likely_1x2 === "1" ? "#1a8a4a" : m.likely_1x2 === "2" ? "#c0392b" : "#888" }}>
+                        style={{ backgroundColor: m.likely_1x2 === "1" ? "#1a8a4a" : m.likely_1x2 === "2" ? "#c0392b" : "#e0d56f" }}>
                         {m.likely_1x2 === "1" ? `1 ${home.s}` : m.likely_1x2 === "2" ? `2 ${away.s}` : t.mdDraw}
                       </div>
                     )}
@@ -1633,7 +1633,7 @@ function Matchday({ t }) {
                 <div className="mt-3 px-4 pb-4">
                   <div className="flex h-6 overflow-hidden rounded text-[10px] font-bold text-white">
                     <div className="grid place-items-center" style={{ width: `${m.p_home}%`, backgroundColor: "#1a8a4a" }} title={`1: ${m.p_home}%`}>{m.p_home >= 12 ? `${m.p_home}%` : ""}</div>
-                    <div className="grid place-items-center" style={{ width: `${m.p_draw}%`, backgroundColor: "#888" }} title={`X: ${m.p_draw}%`}>{m.p_draw >= 12 ? `${m.p_draw}%` : ""}</div>
+                    <div className="grid place-items-center" style={{ width: `${m.p_draw}%`, backgroundColor: "#e0d56f" }} title={`X: ${m.p_draw}%`}>{m.p_draw >= 12 ? `${m.p_draw}%` : ""}</div>
                     <div className="grid place-items-center" style={{ width: `${m.p_away}%`, backgroundColor: "#c0392b" }} title={`2: ${m.p_away}%`}>{m.p_away >= 12 ? `${m.p_away}%` : ""}</div>
                   </div>
                   <div className="mt-1 flex justify-between text-[9px] uppercase text-neutral-400">
