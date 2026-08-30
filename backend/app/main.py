@@ -357,6 +357,7 @@ def next_match(team: str = "UD Ourense", blend: float = Query(0.5, ge=0, le=1)):
             "odds": odds,
             # mesmos campos que matchday, para que o frontend os use igual
             "likely_score": p["likely_score"],
+            "likely_1x2": p["likely_1x2"],
             "oGoals_home": p["oGoals_home"], "oGoals_away": p["oGoals_away"],
             "p_home": round(p["home_win"] * 100),
             "p_draw": round(p["draw"] * 100),
@@ -452,7 +453,8 @@ def current_matchday():
             "away": m["away"], "away_slug": SLUG_BY_NAME[m["away"]],
             "date": m.get("date"),
             # predición do modelo
-            "likely_score": p["likely_score"],           # marcador máis probable [h, a]
+            "likely_score": p["likely_score"],
+            "likely_1x2": p["likely_1x2"],           # resultado máis probable (1/X/2) — logit
             "oGoals_home": p["oGoals_home"],
             "oGoals_away": p["oGoals_away"],
             "p_home": round(p["home_win"] * 100),         # 1
@@ -485,6 +487,7 @@ def next_matchdays(count: int = Query(3, ge=1, le=5)):
                 "away": m["away"], "away_slug": SLUG_BY_NAME[m["away"]],
                 "date": m.get("date"),
                 "likely_score": p["likely_score"],
+                "likely_1x2": p["likely_1x2"],
                 "oGoals_home": p["oGoals_home"], "oGoals_away": p["oGoals_away"],
                 "p_home": round(p["home_win"] * 100),
                 "p_draw": round(p["draw"] * 100),
@@ -565,6 +568,7 @@ def team_profile(slug: str):
             "home_slug": SLUG_BY_NAME[nm["home"]], "away_slug": SLUG_BY_NAME[nm["away"]],
             "date": nm.get("date"), "is_home": is_home,
             "likely_score": p["likely_score"],
+            "likely_1x2": p["likely_1x2"],
             "oGoals_home": p["oGoals_home"], "oGoals_away": p["oGoals_away"],
             # PERSPECTIVA DO EQUIPO da ficha: vitoria / empate / derrota (o usuario
             # quere ver o punto de vista de cada equipo, mesmo indo de visitante).
