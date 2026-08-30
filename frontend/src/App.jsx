@@ -40,7 +40,7 @@ const I18N = {
     resumeTitle: "Currículum — valor real dos puntos",
     resumeSub: "Pondera a dificultade do rival e onde se xogou. Δ = currículum − puntos reais.",
     resumeCol: "Currículum",
-    probsTitle: "Probabilidades de tempada", sims: "simulacións",
+    probsTitle: "Probabilidades de tempada (Monte Carlo)", sims: "simulacións",
     legend: { promo: "Ascenso directo (1º)", po: "Playoff (2º-5º)", rel: "Descenso (16º-20º)" },
     simTitle: "Qué pasa se...", simSub: "Fixa resultados da xornada e mira como cambia todo.",
     jornada: "Xornada", reset: "Reiniciar", proj: "Clasificación proxectada",
@@ -53,7 +53,7 @@ const I18N = {
     ratingHelp: "oRating: nota propia de rendemento (media da tempada), con datos reais.",
     mockNote: "O noso fútbol a través dos datos · modelo predictivo de eficiencia contextual",
     mdTitle: "Previa da xornada", mdSub: "Predición do modelo para cada partido",
-    mdExpected: "Resultado esperado", mdProb: "Probabilidades", mdNoData: "Aínda non hai xornada dispoñible.", loading: "Cargando datos…", loadErr: "Non se puideron cargar os datos. Proba a recargar.",
+    mdExpected: "Resultado esperado", mdOGoals: "Goles esperados", mdDraw: "Empate", mdProb: "Probabilidades", mdNoData: "Aínda non hai xornada dispoñible.", loading: "Cargando datos…", loadErr: "Non se puideron cargar os datos. Proba a recargar.",
     tpBack: "← Volver á clasificación", tpNext: "Próximo partido", tpCalendar: "Calendario",
     tpPlayed: "Xogados", tpUpcoming: "Pendentes", tpHome: "Casa", tpAway: "Fóra", tpJ: "X",
     tpStyle: "Perfil de estilo", tpOffense: "Ataque", tpDefense: "Defensa",
@@ -89,7 +89,7 @@ const I18N = {
     resumeTitle: "Currículum — valor real de los puntos",
     resumeSub: "Pondera la dificultad del rival y dónde se jugó. Δ = currículum − puntos reales.",
     resumeCol: "Currículum",
-    probsTitle: "Probabilidades de temporada", sims: "simulaciones",
+    probsTitle: "Probabilidades de temporada (Monte Carlo)", sims: "simulaciones",
     legend: { promo: "Ascenso directo (1º)", po: "Playoff (2º-5º)", rel: "Descenso (16º-20º)" },
     simTitle: "Qué pasa si...", simSub: "Fija resultados de la jornada y mira cómo cambia todo.",
     jornada: "Jornada", reset: "Reiniciar", proj: "Clasificación proyectada",
@@ -102,7 +102,7 @@ const I18N = {
     ratingHelp: "oRating: nota propia de rendimiento (media de temporada), con datos reales.",
     mockNote: "O noso fútbol a través dos datos · modelo predictivo de eficiencia contextual",
     mdTitle: "Previa de la jornada", mdSub: "Predicción del modelo para cada partido",
-    mdExpected: "Resultado esperado", mdProb: "Probabilidades", mdNoData: "Aún no hay jornada disponible.", loading: "Cargando datos…", loadErr: "No se pudieron cargar los datos. Prueba a recargar.",
+    mdExpected: "Resultado esperado", mdOGoals: "Goles esperados", mdDraw: "Empate", mdProb: "Probabilidades", mdNoData: "Aún no hay jornada disponible.", loading: "Cargando datos…", loadErr: "No se pudieron cargar los datos. Prueba a recargar.",
     tpBack: "← Volver a la clasificación", tpNext: "Próximo partido", tpCalendar: "Calendario",
     tpPlayed: "Jugados", tpUpcoming: "Pendientes", tpHome: "Casa", tpAway: "Fuera", tpJ: "J",
     tpStyle: "Perfil de estilo", tpOffense: "Ataque", tpDefense: "Defensa",
@@ -1026,13 +1026,20 @@ function TeamProfile({ t, slug, onBack }) {
             <div className="mb-3 flex items-center justify-center gap-3">
               {(() => { const h = meta(d.next.home, d.next.home_slug), a = meta(d.next.away, d.next.away_slug); return (<>
                 <div className="flex flex-col items-center gap-1"><Crest team={h} size={34} /><span className="text-[11px]" style={h.udo ? { color: RED } : undefined}>{h.n}</span></div>
-                <div className="text-center"><div className="text-xl font-black tabular-nums">{d.next.likely_score[0]}-{d.next.likely_score[1]}</div><div className="text-[9px] uppercase text-neutral-400">{t.mdExpected}</div></div>
+                <div className="text-center"><div className="text-xl font-black tabular-nums">{d.next.likely_score[0]}-{d.next.likely_score[1]}</div><div className="text-[9px] uppercase text-neutral-400">{t.mdOGoals}</div>
+                  {d.next.likely_1x2 && (
+                    <div className="mx-auto mt-1 w-fit rounded-full px-2 py-0.5 text-[10px] font-black text-white"
+                      style={{ backgroundColor: d.next.likely_1x2 === "1" ? "#1a8a4a" : d.next.likely_1x2 === "2" ? "#c0392b" : "#e0a500" }}>
+                      {d.next.likely_1x2 === "1" ? h.s : d.next.likely_1x2 === "2" ? a.s : t.mdDraw}
+                    </div>
+                  )}
+                </div>
                 <div className="flex flex-col items-center gap-1"><Crest team={a} size={34} /><span className="text-[11px]" style={a.udo ? { color: RED } : undefined}>{a.n}</span></div>
               </>); })()}
             </div>
             <div className="flex h-6 overflow-hidden rounded text-[10px] font-bold text-white">
               <div className="grid place-items-center" style={{ width: `${d.next.p_win}%`, backgroundColor: "#1a8a4a" }} title={`${t.tpWin}: ${d.next.p_win}%`}>{d.next.p_win >= 12 ? `${d.next.p_win}%` : ""}</div>
-              <div className="grid place-items-center" style={{ width: `${d.next.p_draw}%`, backgroundColor: "#9a9a9a" }} title={`${t.tpDraw}: ${d.next.p_draw}%`}>{d.next.p_draw >= 12 ? `${d.next.p_draw}%` : ""}</div>
+              <div className="grid place-items-center" style={{ width: `${d.next.p_draw}%`, backgroundColor: "#e0a500" }} title={`${t.tpDraw}: ${d.next.p_draw}%`}>{d.next.p_draw >= 12 ? `${d.next.p_draw}%` : ""}</div>
               <div className="grid place-items-center" style={{ width: `${d.next.p_loss}%`, backgroundColor: "#c0392b" }} title={`${t.tpLoss}: ${d.next.p_loss}%`}>{d.next.p_loss >= 12 ? `${d.next.p_loss}%` : ""}</div>
             </div>
             <div className="mt-1 flex justify-between text-[9px] uppercase text-neutral-400">
@@ -1609,8 +1616,13 @@ function Matchday({ t }) {
                   </div>
                   <div className="flex flex-col items-center px-2">
                     <div className="text-2xl font-black tabular-nums">{ls[0]}<span className="mx-1 text-neutral-300">-</span>{ls[1]}</div>
-                    <div className="text-[9px] uppercase tracking-wide text-neutral-400">{t.mdExpected}</div>
-                    <div className="mt-0.5 text-[10px] tabular-nums text-neutral-400">oG {m.oGoals_home}-{m.oGoals_away}</div>
+                    <div className="text-[9px] uppercase tracking-wide text-neutral-400">{t.mdOGoals}</div>
+                    {m.likely_1x2 && (
+                      <div className="mt-1 rounded-full px-2 py-0.5 text-[10px] font-black text-white"
+                        style={{ backgroundColor: m.likely_1x2 === "1" ? "#1a8a4a" : m.likely_1x2 === "2" ? "#c0392b" : "#e0a500" }}>
+                        {m.likely_1x2 === "1" ? `1 ${home.s}` : m.likely_1x2 === "2" ? `2 ${away.s}` : t.mdDraw}
+                      </div>
+                    )}
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
                     <Crest team={away} size={38} />
@@ -1621,7 +1633,7 @@ function Matchday({ t }) {
                 <div className="mt-3 px-4 pb-4">
                   <div className="flex h-6 overflow-hidden rounded text-[10px] font-bold text-white">
                     <div className="grid place-items-center" style={{ width: `${m.p_home}%`, backgroundColor: "#1a8a4a" }} title={`1: ${m.p_home}%`}>{m.p_home >= 12 ? `${m.p_home}%` : ""}</div>
-                    <div className="grid place-items-center" style={{ width: `${m.p_draw}%`, backgroundColor: "#9a9a9a" }} title={`X: ${m.p_draw}%`}>{m.p_draw >= 12 ? `${m.p_draw}%` : ""}</div>
+                    <div className="grid place-items-center" style={{ width: `${m.p_draw}%`, backgroundColor: "#e0a500" }} title={`X: ${m.p_draw}%`}>{m.p_draw >= 12 ? `${m.p_draw}%` : ""}</div>
                     <div className="grid place-items-center" style={{ width: `${m.p_away}%`, backgroundColor: "#c0392b" }} title={`2: ${m.p_away}%`}>{m.p_away >= 12 ? `${m.p_away}%` : ""}</div>
                   </div>
                   <div className="mt-1 flex justify-between text-[9px] uppercase text-neutral-400">
