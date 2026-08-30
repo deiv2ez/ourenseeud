@@ -40,7 +40,7 @@ const I18N = {
     resumeTitle: "Currículum — valor real dos puntos",
     resumeSub: "Pondera a dificultade do rival e onde se xogou. Δ = currículum − puntos reais.",
     resumeCol: "Currículum",
-    probsTitle: "Probabilidades de tempada (Monte Carlo)", sims: "simulacións",
+    probsTitle: "Probabilidades de tempada (modelo híbrido: elo dinámico + ordered logit + poisson bivariante + blend adaptativo)", sims: "simulacións",
     legend: { promo: "Ascenso directo (1º)", po: "Playoff (2º-5º)", rel: "Descenso (16º-20º)" },
     simTitle: "Qué pasa se...", simSub: "Fixa resultados da xornada e mira como cambia todo.",
     jornada: "Xornada", reset: "Reiniciar", proj: "Clasificación proxectada",
@@ -66,7 +66,7 @@ const I18N = {
     pdPassPct: "% pases", pdPassPg: "Pases/part.", pdDuels: "% duelos gañ.", pdDuelsPg: "Duelos/part.",
     pdTackles: "Entradas/part.", pdORavg: "oRating medio", pdORbest: "Mellor oRating",
     pdGames: "partidos", pdMin: "min", pdNoData: "Aínda non hai estatísticas deste xogador.",
-    anMerited: "Táboa merecida", anProjection: "Proxección", anObjectives: "Que precisa a UDO", anCompare: "Comparador",
+    anMerited: "Táboa merecida", anProjection: "Proxección", anObjectives: "Qué precisa a UDO", anCompare: "Comparador",
     anMeritedSub: "Clasificación por puntos MERECIDOS (oPts) en vez dos reais.",
     anProjSub: "Onde acabará cada equipo segundo o modelo (posición media e rango).",
     anObjSub: "Puntos estimados para cada obxectivo e canto falta.",
@@ -89,7 +89,7 @@ const I18N = {
     resumeTitle: "Currículum — valor real de los puntos",
     resumeSub: "Pondera la dificultad del rival y dónde se jugó. Δ = currículum − puntos reales.",
     resumeCol: "Currículum",
-    probsTitle: "Probabilidades de temporada (Monte Carlo)", sims: "simulaciones",
+    probsTitle: "Probabilidades de temporada (modelo híbrido: elo dinámico + ordered logit + poisson bivariante + blend adaptativo)", sims: "simulaciones",
     legend: { promo: "Ascenso directo (1º)", po: "Playoff (2º-5º)", rel: "Descenso (16º-20º)" },
     simTitle: "Qué pasa si...", simSub: "Fija resultados de la jornada y mira cómo cambia todo.",
     jornada: "Jornada", reset: "Reiniciar", proj: "Clasificación proyectada",
@@ -1029,7 +1029,7 @@ function TeamProfile({ t, slug, onBack }) {
                 <div className="text-center"><div className="text-xl font-black tabular-nums">{d.next.likely_score[0]}-{d.next.likely_score[1]}</div><div className="text-[9px] uppercase text-neutral-400">{t.mdOGoals}</div>
                   {d.next.likely_1x2 && (
                     <div className="mx-auto mt-1 w-fit rounded-full px-2 py-0.5 text-[10px] font-black text-white"
-                      style={{ backgroundColor: d.next.likely_1x2 === "1" ? "#1a8a4a" : d.next.likely_1x2 === "2" ? "#c0392b" : "#e0a500" }}>
+                      style={{ backgroundColor: d.next.likely_1x2 === "1" ? "#1a8a4a" : d.next.likely_1x2 === "2" ? "#c0392b" : "#888" }}>
                       {d.next.likely_1x2 === "1" ? h.s : d.next.likely_1x2 === "2" ? a.s : t.mdDraw}
                     </div>
                   )}
@@ -1249,13 +1249,13 @@ function Projection({ t, onTeamClick }) {
   );
 }
 
-/* Idea 12 — Que precisa a UDO */
+/* Idea 12 — Qué precisa a UDO */
 function Objectives({ t }) {
   const [d, setD] = useState(null);
   useEffect(() => { let a = true; (async () => { try { const r = await api.objectives("UD Ourense"); if (a) setD(r); } catch { if (a) setD({ err: true }); } })(); return () => { a = false; }; }, []);
   if (!d) return <Loading text={t.loading} />;
   if (d.err) return <div className="rounded-lg border border-neutral-200 bg-white p-8 text-center text-neutral-400">—</div>;
-  const goals = [[t.anChampion, d.champion, "#1a8a4a"], [t.anPlayoffG, d.playoff, "#e0a500"], [t.anSafety, d.safety, "#2f6fd0"]];
+  const goals = [[t.anChampion, d.champion, "#1a8a4a"], [t.anPlayoffG, d.playoff, "#e0a500"], [t.anSafety, d.safety, "#83d8ff"]];
   return (
     <div>
       <p className="mb-3 text-xs text-neutral-500">{t.anObjSub}</p>
@@ -1295,7 +1295,7 @@ function Objectives({ t }) {
             {[
               [t.anChampion, d.model.p_champion, "#1a8a4a"],
               [t.anPlayoffG, d.model.p_playoff, "#e0a500"],
-              [t.anSafety, d.model.p_safety, "#2f6fd0"],
+              [t.anSafety, d.model.p_safety, "#83d8ff"],
             ].map(([label, pct, col]) => (
               <div key={label}>
                 <div className="mb-0.5 flex justify-between text-[11px]">
@@ -1619,7 +1619,7 @@ function Matchday({ t }) {
                     <div className="text-[9px] uppercase tracking-wide text-neutral-400">{t.mdOGoals}</div>
                     {m.likely_1x2 && (
                       <div className="mt-1 rounded-full px-2 py-0.5 text-[10px] font-black text-white"
-                        style={{ backgroundColor: m.likely_1x2 === "1" ? "#1a8a4a" : m.likely_1x2 === "2" ? "#c0392b" : "#e0a500" }}>
+                        style={{ backgroundColor: m.likely_1x2 === "1" ? "#1a8a4a" : m.likely_1x2 === "2" ? "#c0392b" : "#888" }}>
                         {m.likely_1x2 === "1" ? `1 ${home.s}` : m.likely_1x2 === "2" ? `2 ${away.s}` : t.mdDraw}
                       </div>
                     )}
