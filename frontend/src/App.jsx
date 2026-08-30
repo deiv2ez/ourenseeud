@@ -1255,7 +1255,7 @@ function Objectives({ t }) {
   useEffect(() => { let a = true; (async () => { try { const r = await api.objectives("UD Ourense"); if (a) setD(r); } catch { if (a) setD({ err: true }); } })(); return () => { a = false; }; }, []);
   if (!d) return <Loading text={t.loading} />;
   if (d.err) return <div className="rounded-lg border border-neutral-200 bg-white p-8 text-center text-neutral-400">—</div>;
-  const goals = [[t.anChampion, d.champion, "#1a8a4a"], [t.anPlayoffG, d.playoff, "#e0a500"], [t.anSafety, d.safety, "#83d8ff"]];
+  const goals = [[t.anChampion, d.champion, "#1a8a4a"], [t.anPlayoffG, d.playoff, "#e0a500"], [t.anSafety, d.safety, "#5e4c5e"]];
   return (
     <div>
       <p className="mb-3 text-xs text-neutral-500">{t.anObjSub}</p>
@@ -1295,7 +1295,7 @@ function Objectives({ t }) {
             {[
               [t.anChampion, d.model.p_champion, "#1a8a4a"],
               [t.anPlayoffG, d.model.p_playoff, "#e0a500"],
-              [t.anSafety, d.model.p_safety, "#83d8ff"],
+              [t.anSafety, d.model.p_safety, "#5e4c5e"],
             ].map(([label, pct, col]) => (
               <div key={label}>
                 <div className="mb-0.5 flex justify-between text-[11px]">
@@ -1633,7 +1633,7 @@ function Matchday({ t }) {
                 <div className="mt-3 px-4 pb-4">
                   <div className="flex h-6 overflow-hidden rounded text-[10px] font-bold text-white">
                     <div className="grid place-items-center" style={{ width: `${m.p_home}%`, backgroundColor: "#1a8a4a" }} title={`1: ${m.p_home}%`}>{m.p_home >= 12 ? `${m.p_home}%` : ""}</div>
-                    <div className="grid place-items-center" style={{ width: `${m.p_draw}%`, backgroundColor: "#e0a500" }} title={`X: ${m.p_draw}%`}>{m.p_draw >= 12 ? `${m.p_draw}%` : ""}</div>
+                    <div className="grid place-items-center" style={{ width: `${m.p_draw}%`, backgroundColor: "#888" }} title={`X: ${m.p_draw}%`}>{m.p_draw >= 12 ? `${m.p_draw}%` : ""}</div>
                     <div className="grid place-items-center" style={{ width: `${m.p_away}%`, backgroundColor: "#c0392b" }} title={`2: ${m.p_away}%`}>{m.p_away >= 12 ? `${m.p_away}%` : ""}</div>
                   </div>
                   <div className="mt-1 flex justify-between text-[9px] uppercase text-neutral-400">
