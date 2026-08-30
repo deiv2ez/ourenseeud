@@ -136,22 +136,86 @@ export default function Lineup({ t, token: tokenProp }) {
   };
 
   // ------- compartir aliñación (descargar imaxe / X) -------
-  const captureRef = useRef(null);
   const [sharing, setSharing] = useState(false);
 
+  // Debuxa o campo nun canvas (vista cenital limpa). Garante que o fondo SEMPRE aparece
+  // (html2canvas non captura ben o gradiente inclinado 3D).
   const buildCanvas = async () => {
-    // carga html2canvas desde CDN só cando se precisa (sen engadir dependencia ao build)
-    if (!window.html2canvas) {
-      await new Promise((res, rej) => {
-        const s = document.createElement("script");
-        s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-        s.onload = res; s.onerror = rej;
-        document.head.appendChild(s);
-      });
+    const W = 800, H = 1100;
+    const cv = document.createElement("canvas");
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext("2d");
+
+    // franxas de céspede
+    const bands = 10;
+    for (let i = 0; i < bands; i++) {
+      ctx.fillStyle = i % 2 === 0 ? "#81C784" : "#66BB6A";
+      ctx.fillRect(0, (H / bands) * i, W, H / bands);
     }
-    return window.html2canvas(captureRef.current, {
-      backgroundColor: "#ffffff", scale: 2, useCORS: true,
+    // liñas do campo
+    ctx.strokeStyle = "rgba(255,255,255,0.55)"; ctx.lineWidth = 3;
+    const m = 24;
+    ctx.strokeRect(m, m, W - 2 * m, H - 2 * m);
+    ctx.beginPath(); ctx.moveTo(m, H / 2); ctx.lineTo(W - m, H / 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(W / 2, H / 2, 90, 0, Math.PI * 2); ctx.stroke();
+    // áreas
+    const aw = 360, ah = 150, ax = (W - aw) / 2;
+    ctx.strokeRect(ax, m, aw, ah);
+    ctx.strokeRect(ax, H - m - ah, aw, ah);
+
+    // título
+    ctx.fillStyle = "#C8102E"; ctx.font = "bold 34px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("Once · UD Ourense", W / 2, 60);
+    ctx.fillStyle = "#333"; ctx.font = "600 22px system-ui, sans-serif";
+    ctx.fillText(shareLabel().replace("Once da UD Ourense · ", ""), W / 2, 92);
+
+    // carga a camiseta (png ou fallback)
+    const loadImg = (src) => new Promise((res) => {
+      const im = new Image(); im.crossOrigin = "anonymous";
+      im.onload = () => res(im); im.onerror = () => res(null); im.src = src;
     });
+    const shirt = await loadImg("/camiseta.png");
+    const shirtGK = await loadImg("/camiseta_portero.png");
+
+    // nodos (usa a mesma proxección invertida: y=0 abaixo)
+    for (const p of onField) {
+      if (!p.name) continue;
+      const cx = (p.x / 100) * (W - 120) + 60;
+      const cy = ((100 - p.y) / 100) * (H - 180) + 120;
+      const s = 88;
+      const img = p.role === "POR" ? (shirtGK || shirt) : shirt;
+      if (img) {
+        ctx.drawImage(img, cx - s / 2, cy - s / 2, s, s);
+      } else {
+        ctx.fillStyle = p.role === "POR" ? "#e0a500" : "#C8102E";
+        ctx.beginPath(); ctx.arc(cx, cy, s / 3, 0, Math.PI * 2); ctx.fill();
+      }
+      // badge de nota (só pasados con oRating)
+      if (showRatings && p.oRating != null) {
+        const bx = cx + s / 2 - 8, by = cy - s / 2 + 8, br = 20;
+        ctx.fillStyle = ratingColor(p.oRating);
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(bx - br, by - br, br * 2, br * 2, 6);
+        else ctx.rect(bx - br, by - br, br * 2, br * 2);
+        ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.font = "900 20px system-ui, sans-serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(p.oRating.toFixed(1), bx, by);
+        ctx.textBaseline = "alphabetic";
+      }
+      // nome
+      const label = shortName(p.display, p.name);
+      ctx.font = "800 22px system-ui, sans-serif";
+      const tw = ctx.measureText(label).width;
+      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      const pad = 8, lh = 30;
+      ctx.fillRect(cx - tw / 2 - pad, cy + s / 2 + 2, tw + pad * 2, lh);
+      ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(label, cx, cy + s / 2 + 2 + lh / 2);
+      ctx.textBaseline = "alphabetic";
+    }
+    return cv;
   };
 
   const shareLabel = () => {
@@ -164,9 +228,8 @@ export default function Lineup({ t, token: tokenProp }) {
     setSharing(true); setMsg("");
     try {
       const canvas = await buildCanvas();
-      const url = canvas.toDataURL("image/png");
       const a = document.createElement("a");
-      a.href = url;
+      a.href = canvas.toDataURL("image/png");
       a.download = `once-udo-${t.tpJ}${sel?.jornada ?? ""}.png`;
       a.click();
     } catch { setMsg("✗ Non se puido xerar a imaxe."); }
@@ -177,16 +240,13 @@ export default function Lineup({ t, token: tokenProp }) {
     setSharing(true); setMsg("");
     try {
       const text = encodeURIComponent(shareLabel() + " #UDOurense");
-      // Web Share API con imaxe (móbil): comparte a foto directamente se se pode
       const canvas = await buildCanvas();
       canvas.toBlob(async (blob) => {
         const file = new File([blob], "once-udo.png", { type: "image/png" });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({ files: [file], text: shareLabel() });
-          } catch { /* cancelado */ }
+          try { await navigator.share({ files: [file], text: shareLabel() }); }
+          catch { /* cancelado */ }
         } else {
-          // escritorio: abre X co texto (a imaxe descárgase para adxuntala)
           const a = document.createElement("a");
           a.href = canvas.toDataURL("image/png");
           a.download = `once-udo-${t.tpJ}${sel?.jornada ?? ""}.png`;
@@ -230,7 +290,7 @@ export default function Lineup({ t, token: tokenProp }) {
       <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
         {/* CAMPO 3D */}
         <div>
-          <div ref={captureRef} className="rounded-xl bg-white p-2">
+          <div className="rounded-xl bg-white p-2">
             <Pitch onField={onField} showRatings={isPast && !editing} editing={editing} onSlotClick={(i) => {
               if (!editing) return;
               if (onField[i].name) clearSlot(i); else setPicking(i);
@@ -342,41 +402,36 @@ function Pitch({ onField, showRatings, editing, onSlotClick, pickingIndex }) {
     return () => window.removeEventListener("resize", onR);
   }, []);
 
-  // En MÓBIL estiramos o campo (máis alto) e ABRIMOS o rango para que as liñas
-  // futbolísticas non queden pegadas. En ESCRITORIO déixase como estaba (perfecto).
+  // En MÓBIL abrimos o rango (líñas máis separadas) e reducimos as camisetas. En
+  // ESCRITORIO déixase EXACTAMENTE como estaba (perspectiva que gusta).
   const projectTop = (y) => {
-    const top = 100 - y;           // 0 = área rival (arriba), 100 = área propia (abaixo)
+    const top = 100 - y;
     const t = top / 100;
-    const eased = t * t * 0.35 + t * 0.65;   // 0..1
-    if (isMobile) return 15 + eased * 83;      // 15%..98%: máis aberto (líñas separadas)
+    const eased = t * t * 0.35 + t * 0.65;
+    if (isMobile) return 20 + eased * 78;      // 20%..98%: líñas máis separadas
     return 24 + eased * 72;                    // 24%..96% (escritorio, igual que antes)
   };
-  const ratio = isMobile ? "3 / 4.3" : "3 / 3.5";  // móbil máis alto (estira cara arriba)
-  const originY = isMobile ? "center 32%" : "center 30%";
 
   return (
-    <div style={{ perspective: "760px", perspectiveOrigin: originY }}
+    <div style={{ perspective: "760px", perspectiveOrigin: "center 30%" }}
       className="mx-auto w-full max-w-[560px]">
-      {/* wrapper que RECORTA o oco morto de arriba que deixa a inclinación */}
-      <div style={{ position: "relative", aspectRatio: ratio, overflow: "hidden", borderRadius: 10 }}>
-        <div style={{ position: "absolute", inset: 0, top: isMobile ? "-6%" : "-11%", transformStyle: "preserve-3d" }}>
-          {/* CAPA 1: céspede INCLINADO (só fondo) */}
-          <div style={{
-            position: "absolute", inset: 0,
-            transform: "rotateX(38deg)", transformOrigin: "center bottom",
-            borderRadius: 10, overflow: "hidden",
-            backgroundImage: "repeating-linear-gradient(0deg, #81C784 0, #81C784 10%, #66BB6A 10%, #66BB6A 20%)",
-            boxShadow: "0 30px 50px -20px rgba(0,0,0,0.4)",
-          }}>
-            <PitchLines />
-          </div>
-          {/* CAPA 2: nodos, plana e frontal á cámara */}
-          <div style={{ position: "absolute", inset: 0 }}>
-            {onField.map((p, i) => (
-              <PlayerNode key={i} p={p} showRatings={showRatings} editing={editing} picking={pickingIndex === i}
-                top={projectTop(p.y)} left={p.x} onClick={() => onSlotClick(i)} />
-            ))}
-          </div>
+      <div style={{ position: "relative", aspectRatio: "3 / 3.5", transformStyle: "preserve-3d" }}>
+        {/* CAPA 1: céspede INCLINADO (só fondo) */}
+        <div style={{
+          position: "absolute", inset: 0,
+          transform: "rotateX(38deg)", transformOrigin: "center bottom",
+          borderRadius: 10, overflow: "hidden",
+          backgroundImage: "repeating-linear-gradient(0deg, #81C784 0, #81C784 10%, #66BB6A 10%, #66BB6A 20%)",
+          boxShadow: "0 30px 50px -20px rgba(0,0,0,0.4)",
+        }}>
+          <PitchLines />
+        </div>
+        {/* CAPA 2: nodos, plana e frontal á cámara */}
+        <div style={{ position: "absolute", inset: 0 }}>
+          {onField.map((p, i) => (
+            <PlayerNode key={i} p={p} showRatings={showRatings} editing={editing} picking={pickingIndex === i}
+              mobile={isMobile} top={projectTop(p.y)} left={p.x} onClick={() => onSlotClick(i)} />
+          ))}
         </div>
       </div>
     </div>
@@ -403,8 +458,9 @@ function PitchLines() {
   );
 }
 
-function PlayerNode({ p, showRatings, editing, picking, top, left, onClick }) {
+function PlayerNode({ p, showRatings, editing, picking, mobile, top, left, onClick }) {
   const empty = !p.name;
+  const emptySize = mobile ? 42 : 56;
   return (
     <div onClick={onClick}
       style={{
@@ -417,19 +473,19 @@ function PlayerNode({ p, showRatings, editing, picking, top, left, onClick }) {
       <div className="flex flex-col items-center gap-1">
         {empty ? (
           <div className="grid place-items-center rounded-full border-2 border-dashed"
-            style={{ width: 56, height: 56, borderColor: picking ? RED : "rgba(120,120,120,0.75)",
+            style={{ width: emptySize, height: emptySize, borderColor: picking ? RED : "rgba(120,120,120,0.75)",
                      background: "rgba(255,255,255,0.12)", color: picking ? RED : "#777" }}>
             <span className="text-3xl leading-none">+</span>
           </div>
         ) : (
           <div className="relative">
             {/* camiseta: PNG personalizado. O portero leva camiseta_portero.png. */}
-            <Shirt gk={p.role === "POR"} />
+            <Shirt gk={p.role === "POR"} mobile={mobile} />
             {/* badge de oRating (só en lectura de pasados) — estética da Plantilla */}
             {showRatings && p.oRating != null && (
               <span className="absolute -right-2 -top-2 grid place-items-center rounded-lg font-black text-white"
-                style={{ width: 26, height: 26, fontSize: 12, backgroundColor: ratingColor(p.oRating),
-                         boxShadow: "0 2px 5px rgba(0,0,0,0.3)" }}>
+                style={{ width: mobile ? 22 : 26, height: mobile ? 22 : 26, fontSize: mobile ? 10 : 12,
+                         backgroundColor: ratingColor(p.oRating), boxShadow: "0 2px 5px rgba(0,0,0,0.3)" }}>
                 {p.oRating.toFixed(1)}
               </span>
             )}
@@ -437,9 +493,9 @@ function PlayerNode({ p, showRatings, editing, picking, top, left, onClick }) {
         )}
         {!empty && (
           <span style={{
-            maxWidth: 104, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-            fontSize: 14, fontWeight: 800, lineHeight: 1.1, color: "#fff",
-            padding: "1px 6px", borderRadius: 4, background: "rgba(0,0,0,0.6)",
+            maxWidth: mobile ? 76 : 104, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+            fontSize: mobile ? 11 : 14, fontWeight: 800, lineHeight: 1.1, color: "#fff",
+            padding: mobile ? "1px 4px" : "1px 6px", borderRadius: 4, background: "rgba(0,0,0,0.6)",
             // nitidez: evitar subpíxel borroso ao centrar
             transform: "translateZ(0)",
             textShadow: "0 1px 1px rgba(0,0,0,0.4)",
@@ -454,16 +510,15 @@ function PlayerNode({ p, showRatings, editing, picking, top, left, onClick }) {
 
 /* Camiseta: carga /camiseta.png (ou /camiseta_portero.png para o porteiro).
    Se non existe, cae a un SVG abstracto. */
-function Shirt({ gk = false }) {
+function Shirt({ gk = false, mobile = false }) {
   const [ok, setOk] = useState(true);
-  const size = 75;
+  const size = mobile ? 52 : 75;
   const src = gk ? "/camiseta_portero.png" : "/camiseta.png";
   if (ok) {
     return <img src={src} alt="" onError={() => setOk(false)}
       style={{ width: size, height: size, objectFit: "contain",
                filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.32))" }} draggable={false} />;
   }
-  // fallback: portero en amarelo, resto en vermello
   const col = gk ? "#e0a500" : RED;
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill={col} aria-hidden
