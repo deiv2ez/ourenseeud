@@ -1324,7 +1324,12 @@ def player_detail(name: str):
                         d = _json.loads(d)
                     if d:
                         d["jornada"] = row["jornada"]
-                        d["oRating"] = row.get("orating")
+                        # recalcular co oRating ACTUAL (v2) desde o detail, non o gardado
+                        from . import orating as _or
+                        try:
+                            d["oRating"] = _or.orating(d) if "pass_ok" in d else row.get("orating")
+                        except Exception:
+                            d["oRating"] = row.get("orating")
                         mine.append(d)
         except Exception:
             mine = []
