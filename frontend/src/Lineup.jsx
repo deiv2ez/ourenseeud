@@ -426,11 +426,18 @@ function Pitch({ onField, showRatings, editing, onSlotClick, pickingIndex }) {
         }}>
           <PitchLines />
         </div>
-        {/* CAPA 2: nodos, plana e frontal á cámara */}
+        {/* CAPA 2: camisetas (plana e frontal á cámara) */}
         <div style={{ position: "absolute", inset: 0 }}>
           {onField.map((p, i) => (
             <PlayerNode key={i} p={p} showRatings={showRatings} editing={editing} picking={pickingIndex === i}
-              mobile={isMobile} top={projectTop(p.y)} left={p.x} onClick={() => onSlotClick(i)} />
+              mobile={isMobile} top={projectTop(p.y)} left={p.x} onClick={() => onSlotClick(i)} part="shirt" />
+          ))}
+        </div>
+        {/* CAPA 3: nomes SEMPRE por riba das camisetas (cando colapsan, vese o nome) */}
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+          {onField.map((p, i) => (
+            <PlayerNode key={i} p={p} mobile={isMobile}
+              top={projectTop(p.y)} left={p.x} part="name" />
           ))}
         </div>
       </div>
@@ -458,9 +465,35 @@ function PitchLines() {
   );
 }
 
-function PlayerNode({ p, showRatings, editing, picking, mobile, top, left, onClick }) {
+function PlayerNode({ p, showRatings, editing, picking, mobile, top, left, onClick, part = "shirt" }) {
   const empty = !p.name;
-  const emptySize = mobile ? 42 : 56;
+  const emptySize = mobile ? 40 : 56;
+  const shirtSize = mobile ? 46 : 75;
+
+  // CAPA DE NOME: só o nome, desprazado xusto debaixo da camiseta. Vai nunha capa
+  // superior, así que cando dous nodos colapsan, o nome queda por diante da camiseta.
+  if (part === "name") {
+    if (empty) return null;
+    return (
+      <div style={{
+        position: "absolute", left: `${left}%`, top: `${top}%`,
+        transform: `translate(-50%, calc(-50% + ${shirtSize / 2 + (mobile ? 6 : 8)}px))`,
+        pointerEvents: "none",
+      }}>
+        <span style={{
+          display: "block",
+          maxWidth: mobile ? 70 : 104, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+          fontSize: mobile ? 10 : 14, fontWeight: 800, lineHeight: 1.1, color: "#fff",
+          padding: mobile ? "1px 4px" : "1px 6px", borderRadius: 4, background: "rgba(0,0,0,0.72)",
+          transform: "translateZ(0)", textShadow: "0 1px 1px rgba(0,0,0,0.5)",
+        }}>
+          {shortName(p.display, p.name)}
+        </span>
+      </div>
+    );
+  }
+
+  // CAPA DE CAMISETA (+ badge)
   return (
     <div onClick={onClick}
       style={{
@@ -470,7 +503,7 @@ function PlayerNode({ p, showRatings, editing, picking, mobile, top, left, onCli
         zIndex: Math.round(top),
         willChange: "transform",
       }}>
-      <div className="flex flex-col items-center gap-1">
+      <div className="flex flex-col items-center">
         {empty ? (
           <div className="grid place-items-center rounded-full border-2 border-dashed"
             style={{ width: emptySize, height: emptySize, borderColor: picking ? RED : "rgba(120,120,120,0.75)",
@@ -479,9 +512,7 @@ function PlayerNode({ p, showRatings, editing, picking, mobile, top, left, onCli
           </div>
         ) : (
           <div className="relative">
-            {/* camiseta: PNG personalizado. O portero leva camiseta_portero.png. */}
             <Shirt gk={p.role === "POR"} mobile={mobile} />
-            {/* badge de oRating (só en lectura de pasados) — estética da Plantilla */}
             {showRatings && p.oRating != null && (
               <span className="absolute -right-2 -top-2 grid place-items-center rounded-lg font-black text-white"
                 style={{ width: mobile ? 22 : 26, height: mobile ? 22 : 26, fontSize: mobile ? 10 : 12,
@@ -490,18 +521,6 @@ function PlayerNode({ p, showRatings, editing, picking, mobile, top, left, onCli
               </span>
             )}
           </div>
-        )}
-        {!empty && (
-          <span style={{
-            maxWidth: mobile ? 76 : 104, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-            fontSize: mobile ? 11 : 14, fontWeight: 800, lineHeight: 1.1, color: "#fff",
-            padding: mobile ? "1px 4px" : "1px 6px", borderRadius: 4, background: "rgba(0,0,0,0.6)",
-            // nitidez: evitar subpíxel borroso ao centrar
-            transform: "translateZ(0)",
-            textShadow: "0 1px 1px rgba(0,0,0,0.4)",
-          }}>
-            {shortName(p.display, p.name)}
-          </span>
         )}
       </div>
     </div>
@@ -512,7 +531,7 @@ function PlayerNode({ p, showRatings, editing, picking, mobile, top, left, onCli
    Se non existe, cae a un SVG abstracto. */
 function Shirt({ gk = false, mobile = false }) {
   const [ok, setOk] = useState(true);
-  const size = mobile ? 52 : 75;
+  const size = mobile ? 46 : 75;
   const src = gk ? "/camiseta_portero.png" : "/camiseta.png";
   if (ok) {
     return <img src={src} alt="" onError={() => setOk(false)}
