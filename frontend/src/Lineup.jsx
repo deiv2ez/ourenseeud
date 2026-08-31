@@ -43,6 +43,7 @@ export default function Lineup({ t, token: tokenProp }) {
   const [formation, setFormation] = useState("4-2-3-1");
   const [onField, setOnField] = useState([]);   // [{name,display,x,y,role,oRating}]
   const [context, setContext] = useState(null);
+  const [subs, setSubs] = useState([]);         // suplentes con nota (partidos pasados)
   const [isPast, setIsPast] = useState(false);
   const [editing, setEditing] = useState(false);   // modo edición (tamén en pasados)
   const [squad, setSquad] = useState([]);
@@ -84,6 +85,7 @@ export default function Lineup({ t, token: tokenProp }) {
         name: p.name || null, display: p.display || null,
         x: p.x, y: p.y, role: p.role, oRating: p.oRating ?? null,
       })));
+      setSubs(lu.subs || []);
     } catch { /* noop */ }
   }, []);
 
@@ -352,6 +354,27 @@ export default function Lineup({ t, token: tokenProp }) {
             className="mt-1 w-full rounded-lg border border-neutral-300 px-2 py-2 text-sm font-semibold disabled:opacity-60">
             {Object.keys(formations).map((f) => <option key={f} value={f}>{f}</option>)}
           </select>
+
+          {/* SUPLENTES con nota (partidos pasados en lectura) */}
+          {isPast && !editing && subs.length > 0 && (
+            <div className="mt-4">
+              <div className="mb-2 text-[10px] font-bold uppercase text-neutral-400">
+                Tamén xogaron
+              </div>
+              <div className="space-y-1.5">
+                {subs.map((s) => (
+                  <div key={s.name} className="flex items-center justify-between gap-2 rounded-md bg-neutral-50 px-2 py-1.5">
+                    <span className="min-w-0 flex-1 truncate text-sm">{s.display || s.name}</span>
+                    {s.mins != null && <span className="shrink-0 text-[10px] text-neutral-400">{s.mins}'</span>}
+                    <span className="shrink-0 grid place-items-center rounded-lg text-xs font-black text-white"
+                      style={{ width: 30, height: 24, backgroundColor: ratingColor(s.oRating) }}>
+                      {s.oRating.toFixed(1)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* banquillo / selector (só en edición) */}
           {editing && (

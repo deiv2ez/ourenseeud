@@ -895,6 +895,13 @@ function AdminPanel({ t, onExit }) {
                   </div>
                   <input value={p.note} onChange={(e) => setSquadCell(i, "note", e.target.value)}
                     placeholder="Frase ou adxectivo curto (opcional)" className="mt-2 w-full rounded-md border border-neutral-300 px-2 py-1.5 text-xs" />
+                  <div className="mt-2 flex items-center gap-2">
+                    <input value={p.alias || ""} onChange={(e) => setSquadCell(i, "alias", e.target.value)}
+                      placeholder="Nome en Sofascore (se non enlaza a nota)" className="flex-1 rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-xs" />
+                    <span className="shrink-0 text-[10px]" style={{ color: p.oRating != null ? "#1a8a4a" : "#c0392b" }}>
+                      {p.oRating != null ? "✓ enlaza" : "✗ sen nota"}
+                    </span>
+                  </div>
                   {p.signing && (
                     <button onClick={() => removeSigning(p.name)} className="mt-2 text-[11px] text-red-500">Borrar fichaxe</button>
                   )}
