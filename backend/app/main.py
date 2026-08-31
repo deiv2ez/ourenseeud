@@ -719,7 +719,6 @@ def formations():
     return {f: 1 + sum(lines) for f, lines in FORMATIONS.items()}
 
 
-@app.get("/api/squad")
 def _norm_name(s):
     return (s or "").lower().strip()
 
@@ -746,6 +745,12 @@ def _match_ratings(candidates: list[str], by_player: dict):
         if shared and any(len(w) >= 4 for w in shared):
             return recs
     return None
+
+
+@app.get("/api/squad")
+def api_squad():
+    """Plantilla pública (base + edicións + oRatings)."""
+    return get_squad()
 
 
 def get_squad():
