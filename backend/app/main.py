@@ -1366,6 +1366,34 @@ def report_next(team: str = "UD Ourense"):
     from . import report_copy as rc
     seed = m["jornada"]   # mesmo partido → mesmo informe; xornadas distintas varían
 
+    # análise do rival: Gemini (datos reais, sen inventar) ou fallback ao repertorio
+    rival_block = {
+        "gf": rival_s.get("gf", "—"), "ga": rival_s.get("ga", "—"),
+        "xgf": rival_xg.get("xgf", "—"), "xga": rival_xg.get("xga", "—"),
+        "form_label": "".join(rival_s.get("form", [])[-4:]) or "—",
+    }
+    udo_block = {
+        "gf": udo_s.get("gf", "—"), "ga": udo_s.get("ga", "—"),
+        "xgf": udo_xg.get("xgf", "—"),
+        "finish_label": lbl_finish(udo_xg), "defense_label": lbl_def(udo_xg),
+    }
+    keys_for = _report_keys_for(rival_xg, rival_s, seed)
+    venue_analysis = rc.venue_analysis(is_home, seed)
+    context_news = None
+    try:
+        from . import gemini
+        gm = gemini.report_matchup(m["home"], m["away"], is_home,
+                                   rival_block, udo_block, pw, round(p["draw"]*100), pl, lang="gl")
+        if gm:
+            # a clave de Gemini vai a primeira posición; mantense o resto do repertorio
+            keys_for = [gm["key_for"]] + keys_for[:2]
+            venue_analysis = gm["venue_analysis"]
+        # contexto de dinámica recente a partir de noticias (só dinámica, sen rumores)
+        rival_name = m["away"] if is_home else m["home"]
+        context_news = gemini.context_from_news(rival_name, is_home, lang="gl")
+    except Exception:
+        pass
+
     data = {
         "jornada": m["jornada"], "home": m["home"], "away": m["away"], "is_home": is_home,
         "venue_label": "En casa" if is_home else "Fóra",
@@ -1377,20 +1405,13 @@ def report_next(team: str = "UD Ourense"):
         "og_home_label": m["home"], "og_away_label": m["away"],
         "favor_text": rc.favor_text(pw, pl, seed),
         "venue_text": rc.venue_text(is_home, seed),
-        "rival": {
-            "gf": rival_s.get("gf", "—"), "ga": rival_s.get("ga", "—"),
-            "xgf": rival_xg.get("xgf", "—"), "xga": rival_xg.get("xga", "—"),
-            "form_label": "".join(rival_s.get("form", [])[-4:]) or "—",
-        },
-        "udo": {
-            "gf": udo_s.get("gf", "—"), "ga": udo_s.get("ga", "—"),
-            "xgf": udo_xg.get("xgf", "—"),
-            "finish_label": lbl_finish(udo_xg), "defense_label": lbl_def(udo_xg),
-        },
+        "rival": rival_block,
+        "udo": udo_block,
         "players": players,
-        "keys_for": _report_keys_for(rival_xg, rival_s, seed),
+        "keys_for": keys_for,
         "keys_against": rc.keys_against(seed),
-        "venue_analysis": rc.venue_analysis(is_home, seed),
+        "venue_analysis": venue_analysis,
+        "context_news": context_news,
         "scenario_lead": rc.scenario_lead(seed),
         "scenario_behind": rc.scenario_behind(seed),
         "advice": rc.advice(seed),

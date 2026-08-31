@@ -233,6 +233,12 @@ def build_report(data: dict, logo_path: str | None = None) -> bytes:
     S.append(Spacer(1, 6))
     S.append(_rule(HAIR, 0.5, sa=6))
 
+    # ---- Contexto de dinámica recente (noticias, só se hai) ----
+    if data.get("context_news"):
+        S.append(_sec("Dinámica recente", ss))
+        S.append(Paragraph(data["context_news"], ss["rBody"]))
+        S.append(_rule(HAIR, 0.5, sa=6))
+
     # ---- Escenarios ----
     S.append(_sec("Como cambia segundo o escenario", ss))
     S.append(Paragraph(data["venue_analysis"], ss["rBody"]))
