@@ -219,6 +219,7 @@ def save_squad_meta(players: list[dict]) -> int:
         "nick": p.get("nick"), "dorsal": p.get("dorsal"),
         "pos": p.get("pos"), "note": p.get("note"),
         "alias": p.get("alias"),   # nome(s) alternativos para casar co volcado de Sofascore
+        "hidden": bool(p.get("hidden", False)),   # ocultar da plantilla (borrado lóxico)
         "signing": bool(p.get("signing", False)),
     } for p in players]
     url = f"{SUPABASE_URL}/rest/v1/{SQUAD_TABLE}"
@@ -233,7 +234,7 @@ def load_squad_meta() -> list[dict]:
     """Le os datos editables da plantilla. Se non hai Supabase, []."""
     if not enabled():
         return []
-    url = f"{SUPABASE_URL}/rest/v1/{SQUAD_TABLE}?select=name,nick,dorsal,pos,note,alias,signing"
+    url = f"{SUPABASE_URL}/rest/v1/{SQUAD_TABLE}?select=name,nick,dorsal,pos,note,alias,hidden,signing"
     try:
         with httpx.Client(timeout=15) as client:
             r = client.get(url, headers=_headers())

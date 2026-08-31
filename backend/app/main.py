@@ -720,6 +720,34 @@ def formations():
 
 
 @app.get("/api/squad")
+def _norm_name(s):
+    return (s or "").lower().strip()
+
+
+def _name_tokens(s):
+    """Palabras significativas (>=3 letras) para casar por apelido."""
+    return {w for w in _norm_name(s).replace(".", " ").split() if len(w) >= 3}
+
+
+def _match_ratings(candidates: list[str], by_player: dict):
+    """
+    Dado unha lista de nomes candidatos (nome do squad + alias + apodo), atopa os
+    rexistros de rating que lle corresponden. Match exacto primeiro; logo flexible por
+    tokens compartidos (apelido en común de >=4 letras). Devolve a lista de recs ou None.
+    """
+    for c in candidates:
+        if _norm_name(c) in by_player:
+            return by_player[_norm_name(c)]
+    p_tokens = set()
+    for c in candidates:
+        p_tokens |= _name_tokens(c)
+    for key, recs in by_player.items():
+        shared = _name_tokens(key) & p_tokens
+        if shared and any(len(w) >= 4 for w in shared):
+            return recs
+    return None
+
+
 def get_squad():
     """
     Plantilla da UD Ourense. Combina tres fontes:
@@ -739,40 +767,18 @@ def get_squad():
     meta_rows = odds_store.load_squad_meta()
 
     def norm(s):
-        return (s or "").lower().strip()
+        return _norm_name(s)
 
     by_player: dict = {}
     for r in ratings:
         by_player.setdefault(norm(r["player"]), []).append(r)
     meta_by_name = {norm(m["name"]): m for m in meta_rows}
 
-    def tokens(s):
-        # palabras significativas (>=3 letras) para casar por apelido
-        return {w for w in norm(s).replace(".", " ").split() if len(w) >= 3}
-
     def find_ratings(p):
-        # 1) match exacto por nome ou alias (rápido e fiable)
         candidates = [p.get("name")] + (p.get("aliases", []) or [])
-        # o apodo/nick tamén conta como alias de busca
         if p.get("nick"):
             candidates.append(p["nick"])
-        for c in candidates:
-            if norm(c) in by_player:
-                return by_player[norm(c)]
-        # 2) match flexible por tokens compartidos (apelido en común).
-        #    Ex.: "Manuel Vizoso Rodas" (Sofascore) ↔ "Manu Vizoso" (squad) comparten "vizoso".
-        p_tokens = set()
-        for c in candidates:
-            p_tokens |= tokens(c)
-        best = None
-        for key, recs in by_player.items():
-            shared = tokens(key) & p_tokens
-            if shared:
-                # esixir polo menos un token de >=4 letras compartido (evita falsos por "del")
-                if any(len(w) >= 4 for w in shared):
-                    best = recs
-                    break
-        return best
+        return _match_ratings(candidates, by_player)
 
     def apply_ratings(p):
         recs = find_ratings(p)
@@ -788,7 +794,10 @@ def get_squad():
 
     out = []
     seen = set()
+    hidden_names = {norm(m["name"]) for m in meta_rows if m.get("hidden")}
     for p in squad:
+        if norm(p["name"]) in hidden_names:
+            continue   # xogador ocultado (borrado lóxico desde o admin)
         m = meta_by_name.get(norm(p["name"]))
         if m:
             # aplicar edicións do admin (apodo, dorsal, posición, nota, alias)
@@ -1192,6 +1201,7 @@ class SquadMetaEntry(BaseModel):
     pos: str | None = None       # GK/DEF/MED/DEL
     note: str | None = None      # frase/adxectivo curto
     alias: str | None = None     # nome(s) alt. para casar co volcado (separados por comas)
+    hidden: bool = False         # ocultar da plantilla (borrado lóxico)
     signing: bool = False        # True se é un fichaxe engadido a man
 
 
@@ -1201,8 +1211,32 @@ class SquadMetaUpload(BaseModel):
 
 @app.get("/api/admin/squad")
 def admin_get_squad(user: dict = Depends(require_admin)):
-    """Plantilla completa (base + edicións + fichaxes) para editar no panel."""
-    return get_squad()
+    """
+    Plantilla completa (base + edicións + fichaxes) para editar no panel. Inclúe tamén
+    'unmatched_sofascore': nomes de Sofascore con nota que NON casaron con ningún xogador,
+    para axudar a encher os alias correctamente.
+    """
+    from . import odds_store
+    squad = get_squad()
+    # nomes de rating que SÍ casaron (teñen oRating aplicado nalgún xogador)
+    matched = set()
+    ratings = odds_store.load_ratings()
+    by_player = {}
+    for r in ratings:
+        if r.get("orating") is not None:
+            by_player.setdefault(_norm_name(r["player"]), []).append(r)
+    for p in squad:
+        cands = [p.get("name")] + (p.get("aliases") or [])
+        if p.get("nick"):
+            cands.append(p["nick"])
+        recs = _match_ratings(cands, by_player)
+        if recs:
+            for x in recs:
+                matched.add(_norm_name(x["player"]))
+    unmatched = sorted({r["player"] for r in ratings
+                        if r.get("orating") is not None
+                        and _norm_name(r["player"]) not in matched})
+    return {"squad": squad, "unmatched_sofascore": unmatched}
 
 
 @app.post("/api/admin/squad")
@@ -1221,13 +1255,35 @@ def admin_save_squad(payload: SquadMetaUpload, user: dict = Depends(require_admi
 
 @app.delete("/api/admin/squad/{name}")
 def admin_delete_signing(name: str, user: dict = Depends(require_admin)):
-    """Borra un fichaxe engadido a man."""
+    """
+    Elimina un xogador da plantilla:
+    - Se é un fichaxe engadido a man (signing), bórrase de vez.
+    - Se é un xogador do squad.json base, OCÚLTASE (borrado lóxico con hidden=True),
+      xa que o squad.json non se pode editar en Render (disco efímero).
+    """
     from . import odds_store
+    import json as _json
+    from pathlib import Path
     try:
-        odds_store.delete_squad_meta(name)
+        # ¿está en squad.json base?
+        squad_file = Path(__file__).resolve().parent.parent / "data" / "squad.json"
+        base_names = set()
+        if squad_file.exists():
+            base_names = {p["name"].lower().strip()
+                          for p in _json.loads(squad_file.read_text(encoding="utf-8"))}
+        if name.lower().strip() in base_names:
+            # xogador base → ocultar (upsert co flag hidden)
+            meta = {m["name"]: m for m in odds_store.load_squad_meta()}
+            existing = meta.get(name, {"name": name})
+            existing["hidden"] = True
+            odds_store.save_squad_meta([existing])
+            return {"ok": True, "hidden": name}
+        else:
+            # fichaxe → borrar de vez
+            odds_store.delete_squad_meta(name)
+            return {"ok": True, "deleted": name}
     except Exception as exc:
-        raise HTTPException(502, f"Erro borrando: {exc}")
-    return {"ok": True, "deleted": name}
+        raise HTTPException(502, f"Erro eliminando: {exc}")
 
 
 @app.get("/api/player/{name}")
@@ -1544,40 +1600,52 @@ def get_lineup(jornada: int):
 
     # oRatings desa xornada + apodos (display) + minutos
     ratings = odds_store.load_ratings()
-    meta = {mm["name"].lower().strip(): mm for mm in odds_store.load_squad_meta()}
-    orating_by = {}
-    mins_by = {}
+    meta_rows = odds_store.load_squad_meta()
+    meta = {mm["name"].lower().strip(): mm for mm in meta_rows}
+    # índice de ratings por nome (para o match flexible, igual que na Plantilla)
+    by_player: dict = {}
     for r in ratings:
         if r["jornada"] == jornada and r.get("orating") is not None:
-            orating_by[r["player"].lower().strip()] = r["orating"]
-            mins_by[r["player"].lower().strip()] = r.get("mins")
+            by_player.setdefault(_norm_name(r["player"]), []).append(r)
 
     def display_of(name):
         m = meta.get((name or "").lower().strip())
         return (m.get("nick") if m and m.get("nick") else name)
 
+    def alias_candidates(name):
+        # nome do squad + alias do admin + apodo (para casar co nome de Sofascore)
+        cands = [name]
+        m = meta.get((name or "").lower().strip())
+        if m:
+            if m.get("alias"):
+                cands += [a.strip() for a in str(m["alias"]).split(",") if a.strip()]
+            if m.get("nick"):
+                cands.append(m["nick"])
+        return cands
+
     if saved:
         players = saved["players"]
-        titular_keys = set()
+        used_keys = set()   # nomes de rating (Sofascore) xa asignados a un titular
         for p in players:
-            key = (p.get("name") or "").lower().strip()
+            if not p.get("name"):
+                p["display"] = None
+                continue
             p["display"] = display_of(p.get("name"))
-            if key in orating_by:
-                p["oRating"] = orating_by[key]
-            if p.get("name"):
-                titular_keys.add(key)
-        # SUPLENTES: xogadores con nota nesa xornada que NON están no once titular.
-        # Amosan a súa nota no panel (xogaron minutos pero non foron titulares).
+            recs = _match_ratings(alias_candidates(p["name"]), by_player)
+            if recs:
+                vals = [x["orating"] for x in recs if x.get("orating") is not None]
+                if vals:
+                    p["oRating"] = round(sum(vals) / len(vals), 1)
+                for x in recs:
+                    used_keys.add(_norm_name(x["player"]))
+        # SUPLENTES: ratings desa xornada que NON se asignaron a ningún titular.
         subs = []
-        for r in ratings:
-            if r["jornada"] != jornada or r.get("orating") is None:
+        for key, recs in by_player.items():
+            if key in used_keys:
                 continue
-            key = r["player"].lower().strip()
-            if key in titular_keys:
-                continue
+            r = recs[0]
             subs.append({"name": r["player"], "display": display_of(r["player"]),
                          "oRating": r["orating"], "mins": r.get("mins")})
-        # ordenar por minutos (máis primeiro), logo por nota
         subs.sort(key=lambda s: (-(s.get("mins") or 0), -(s.get("oRating") or 0)))
         return {"formation": saved["formation"], "players": players,
                 "context": ctx, "saved": True, "subs": subs}
