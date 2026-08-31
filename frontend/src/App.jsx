@@ -20,6 +20,19 @@ import Lineup from "./Lineup";
    ============================================================================ */
 
 const RED = "#C8102E";
+
+// Código de cores do oRating (6 tramos). Compartido por Plantilla e Once.
+//   0.0–4.9 Insuficiente (vermello) · 5.0–5.9 Suficiente (laranxa) · 6.0–6.9 Ben (ámbar)
+//   7.0–7.9 Notable (verde claro) · 8.0–8.9 Excelente (verde escuro) · 9.0–10 Estelar (celeste)
+function ratingColor(r) {
+  if (r == null) return "#c4c4c4";
+  if (r >= 9.0) return "#0ea5e9";
+  if (r >= 8.0) return "#1a8a4a";
+  if (r >= 7.0) return "#4ade80";
+  if (r >= 6.0) return "#c99700";
+  if (r >= 5.0) return "#e67e22";
+  return "#c0392b";
+}
 const ZONE = {
   promo: { bar: "#1a8a4a", soft: "#e7f5ec" }, // ascenso directo — verde
   po:    { bar: "#e0a500", soft: "#fdf6e3" }, // playoff — amarillo
@@ -2011,7 +2024,7 @@ function PlayerDetail({ t, name, onClose }) {
         ) : (
           <>
             <div className="mb-3 flex items-center gap-3">
-              <div className="grid h-14 w-14 place-items-center rounded-xl text-xl font-black text-white" style={{ backgroundColor: s.orating_avg >= 7 ? "#1a8a4a" : s.orating_avg < 5 ? "#c0392b" : "#c99700" }}>
+              <div className="grid h-14 w-14 place-items-center rounded-xl text-xl font-black text-white" style={{ backgroundColor: ratingColor(s.orating_avg) }}>
                 {s.orating_avg != null ? s.orating_avg.toFixed(1) : "–"}
               </div>
               <div className="text-xs text-neutral-500">
@@ -2057,7 +2070,7 @@ function Squad({ t }) {
 
   const GROUP = { GK: "gk", POR: "gk", DEF: "df", DF: "df", LI: "df", LD: "df", MED: "mf", MC: "mf", MCO: "mf", DEL: "fw", EI: "fw", ED: "fw", DC: "fw" };
   const POS = { GK: "POR", POR: "POR", DEF: "DEF", DF: "DFC", LI: "LI", LD: "LD", MED: "MED", MC: "MC", MCO: "MCO", DEL: "DEL", EI: "EI", ED: "ED", DC: "DC" };
-  const rc = (r) => (r == null ? "#c4c4c4" : r >= 7.0 ? "#1a8a4a" : r >= 6.3 ? "#c99700" : "#b06a3b");
+  const rc = ratingColor;
   const fmtMV = (v) => (v == null ? "—" : `${Math.round(v / 1000)} mil €`);
   const list = players === null ? [] : (filter === "all" ? players : players.filter((p) => GROUP[p.pos] === filter));
   const tabs = [["all", t.all], ["gk", t.gk], ["df", t.df], ["mf", t.mf], ["fw", t.fw]];

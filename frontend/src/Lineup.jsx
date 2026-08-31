@@ -4,11 +4,15 @@ import { api } from "./lib/api";
 const RED = "#C8102E";
 
 // cor do badge de oRating (igual que na plantilla)
+// Código de cores do oRating (6 tramos), igual que na Plantilla.
 function ratingColor(r) {
   if (r == null) return "#c4c4c4";
-  if (r >= 7.0) return "#1a8a4a";
-  if (r >= 6.3) return "#c99700";
-  return "#b06a3b";
+  if (r >= 9.0) return "#0ea5e9";   // Estelar (celeste)
+  if (r >= 8.0) return "#1a8a4a";   // Excelente (verde escuro)
+  if (r >= 7.0) return "#4ade80";   // Notable (verde claro)
+  if (r >= 6.0) return "#c99700";   // Ben (ámbar)
+  if (r >= 5.0) return "#e67e22";   // Suficiente (laranxa)
+  return "#c0392b";                  // Insuficiente (vermello)
 }
 
 // escudo minimalista do rival
