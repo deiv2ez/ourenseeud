@@ -746,9 +746,36 @@ def get_squad():
         by_player.setdefault(norm(r["player"]), []).append(r)
     meta_by_name = {norm(m["name"]): m for m in meta_rows}
 
-    def apply_ratings(p):
+    def tokens(s):
+        # palabras significativas (>=3 letras) para casar por apelido
+        return {w for w in norm(s).replace(".", " ").split() if len(w) >= 3}
+
+    def find_ratings(p):
+        # 1) match exacto por nome ou alias (rápido e fiable)
         candidates = [p.get("name")] + (p.get("aliases", []) or [])
-        recs = next((by_player[norm(c)] for c in candidates if norm(c) in by_player), None)
+        # o apodo/nick tamén conta como alias de busca
+        if p.get("nick"):
+            candidates.append(p["nick"])
+        for c in candidates:
+            if norm(c) in by_player:
+                return by_player[norm(c)]
+        # 2) match flexible por tokens compartidos (apelido en común).
+        #    Ex.: "Manuel Vizoso Rodas" (Sofascore) ↔ "Manu Vizoso" (squad) comparten "vizoso".
+        p_tokens = set()
+        for c in candidates:
+            p_tokens |= tokens(c)
+        best = None
+        for key, recs in by_player.items():
+            shared = tokens(key) & p_tokens
+            if shared:
+                # esixir polo menos un token de >=4 letras compartido (evita falsos por "del")
+                if any(len(w) >= 4 for w in shared):
+                    best = recs
+                    break
+        return best
+
+    def apply_ratings(p):
+        recs = find_ratings(p)
         if recs:
             vals = [x["orating"] for x in recs if x.get("orating") is not None]
             p["oRating"] = round(sum(vals) / len(vals), 1) if vals else None

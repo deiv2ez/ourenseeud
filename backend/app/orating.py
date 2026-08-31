@@ -20,9 +20,9 @@ formato "N/M", a posición é a última cela D/M/F/G, os minutos rematan en "'".
 """
 import re
 
-BASE = 4.5
-DUEL_WIN = 0.12          # valor de cada duelo gañado
-TACKLE_WIN = 0.25        # valor de cada tackle gañado
+BASE = 5.0
+DUEL_WIN = 0.12          # (legado v1; a v2 usa 0.10 directamente na fórmula)
+TACKLE_WIN = 0.25        # (legado v1; a v2 non usa tackles por separado)
 PHYS_CAP = 2.0           # tope (+/-) do bloque físico
 
 _PASS = re.compile(r'^(\d+)/(\d+)')
@@ -75,13 +75,34 @@ def parse_player(cells: list[str]) -> dict | None:
 
 
 def orating(p: dict) -> float:
-    """Calcula o oRating dun xogador xa parseado."""
+    """
+    Calcula o oRating v2 dun xogador xa parseado.
+
+    Calibración v2 (con datos reais da J1): a BASE sobe a 5.0 e os multiplicadores de
+    POSESIÓN escálanse pola demarcación, para premiar o VOLUME de xogo (un medio que dá
+    moitos pases sobe) sen ter que multiplicar polos minutos: o propio volume xa premia
+    a regularidade de xogar os 90' e ancora os suplentes preto do 5.0.
+
+    Posesión (por posición):
+      M          : pases_ok*0.13 − pases_fallados*0.20   (premia moito o volume, esixe precisión)
+      D / G      : pases_ok*0.08 − pases_fallados*0.13   (pases máis seguros)
+      F          : pases_ok*0.08 − pases_fallados*0.15
+    Físico: duelos_gañados*0.10 − duelos_perdidos*NEG   (NEG = 0.05 F / 0.10 resto)
+      Usa SÓ a columna "Duels (won)" (o total de duelos). "Ground/Aerial" son o desglose
+      da mesma, non duelos adicionais, así que non se suman aparte.
+    """
     att = p["goals"] * 2.0 + p["assists"] * 1.2
-    poss = p["pass_ok"] * 0.05 - (p["pass_tot"] - p["pass_ok"]) * 0.15
-    neg = 0.05 if p["pos"] == "F" else 0.10
-    terr = p["duels_won"] * DUEL_WIN - (p["duels_tot"] - p["duels_won"]) * neg
-    aer = p["aerial_won"] * DUEL_WIN - (p["aerial_tot"] - p["aerial_won"]) * neg
-    phys = terr + aer + p["tackles_won"] * TACKLE_WIN
+    ok = p["pass_ok"]
+    fail = p["pass_tot"] - p["pass_ok"]
+    pos = p["pos"]
+    if pos == "M":
+        poss = ok * 0.13 - fail * 0.20
+    elif pos in ("D", "G"):
+        poss = ok * 0.08 - fail * 0.13
+    else:  # F
+        poss = ok * 0.08 - fail * 0.15
+    neg = 0.05 if pos == "F" else 0.10
+    phys = p["duels_won"] * 0.10 - (p["duels_tot"] - p["duels_won"]) * neg
     phys = max(-PHYS_CAP, min(PHYS_CAP, phys))
     return round(max(0.0, min(10.0, BASE + att + poss + phys)), 1)
 
