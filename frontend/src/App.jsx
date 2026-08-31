@@ -422,6 +422,7 @@ function AdminPanel({ t, onExit }) {
   const [udoMatch, setUdoMatch] = useState(null);   // último partido real da UDO
   // Plantel (edición)
   const [squad, setSquad] = useState([]);
+  const [unmatched, setUnmatched] = useState([]);   // nomes de Sofascore sen asignar
   const [newSigning, setNewSigning] = useState({ name: "", nick: "", dorsal: "", pos: "DEL", note: "" });
   // Resultados (por partido)
   const [matches, setMatches] = useState(null);
@@ -444,11 +445,14 @@ function AdminPanel({ t, onExit }) {
 
   const loadSquad = async (tk) => {
     try {
-      const sq = await api.adminGetSquad(tk);
-      setSquad((sq || []).map((p) => ({
+      const resp = await api.adminGetSquad(tk);
+      // compat: pode vir como lista (antigo) ou {squad, unmatched_sofascore} (novo)
+      const sq = Array.isArray(resp) ? resp : (resp.squad || []);
+      setUnmatched(Array.isArray(resp) ? [] : (resp.unmatched_sofascore || []));
+      setSquad(sq.map((p) => ({
         name: p.name, nick: p.nick || "", dorsal: p.dorsal ?? "",
-        pos: p.pos || "", note: p.note || "", signing: !!p.signing,
-        oRating: p.oRating,
+        pos: p.pos || "", note: p.note || "", alias: p.alias || "",
+        signing: !!p.signing, oRating: p.oRating,
       })));
     } catch { /* ignora */ }
   };
@@ -489,7 +493,7 @@ function AdminPanel({ t, onExit }) {
 
   const removeSigning = async (name) => {
     setBusy(true);
-    try { await api.adminDeleteSigning(token, name); await loadSquad(token); setMsg("✓ Fichaxe borrado."); }
+    try { await api.adminDeleteSigning(token, name); await loadSquad(token); setMsg("✓ Xogador eliminado."); }
     catch { setMsg("✗ Erro ao borrar."); }
     finally { setBusy(false); }
   };
@@ -871,11 +875,20 @@ function AdminPanel({ t, onExit }) {
         {tab === "squad" && (
           <>
             <h2 className="mb-1 text-sm font-bold">Plantel</h2>
-            <p className="mb-4 text-xs text-neutral-500">
-              O nome de Sofascore é a referencia interna (non se toca). Podes poñer un apodo
-              (o que se ve no frontend), dorsal, demarcación e unha frase curta. Tamén engadir
-              fichaxes.
+            <p className="mb-3 text-xs text-neutral-500">
+              O nome de Sofascore é a referencia interna. Podes poñer un apodo (o que se ve no
+              frontend), dorsal, demarcación e unha frase curta; engadir fichaxes; ou eliminar
+              xogadores. Se unha nota non enlaza, copia o "Nome en Sofascore" no campo do xogador.
             </p>
+            {unmatched.length > 0 && (
+              <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs">
+                <div className="mb-1 font-bold text-amber-700">Notas sen asignar ({unmatched.length}):</div>
+                <div className="text-amber-800">
+                  {unmatched.join(" · ")}
+                </div>
+                <div className="mt-1 text-[10px] text-amber-600">Copia un destes nomes no campo "Nome en Sofascore" do xogador correspondente.</div>
+              </div>
+            )}
             <div className="space-y-2">
               {squad.map((p, i) => (
                 <div key={p.name} className="rounded-lg border border-neutral-200 bg-white p-3">
@@ -902,9 +915,9 @@ function AdminPanel({ t, onExit }) {
                       {p.oRating != null ? "✓ enlaza" : "✗ sen nota"}
                     </span>
                   </div>
-                  {p.signing && (
-                    <button onClick={() => removeSigning(p.name)} className="mt-2 text-[11px] text-red-500">Borrar fichaxe</button>
-                  )}
+                  <button onClick={() => removeSigning(p.name)} className="mt-2 text-[11px] text-red-500">
+                    {p.signing ? "Borrar fichaxe" : "Eliminar da plantilla"}
+                  </button>
                 </div>
               ))}
             </div>
