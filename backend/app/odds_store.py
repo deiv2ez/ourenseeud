@@ -174,12 +174,30 @@ def load_ratings() -> list[dict]:
     """
     if not enabled():
         return []
-    url = f"{SUPABASE_URL}/rest/v1/{RATINGS_TABLE}?select=jornada,player,orating,pos,mins"
+    url = f"{SUPABASE_URL}/rest/v1/{RATINGS_TABLE}?select=jornada,player,orating,pos,mins,detail"
     try:
+        import json as _json
+        from . import orating as _or
         with httpx.Client(timeout=15) as client:
             r = client.get(url, headers=_headers())
             r.raise_for_status()
-            return r.json()
+            rows = r.json()
+        # RECALCULAR o oRating desde o `detail` coa fórmula ACTUAL (v2). Así os cambios
+        # na fórmula aplícanse sen ter que volver pegar os volcados. Se non hai detail
+        # válido, mantense o valor gardado.
+        for row in rows:
+            det = row.get("detail")
+            if isinstance(det, str):
+                try:
+                    det = _json.loads(det)
+                except Exception:
+                    det = None
+            if isinstance(det, dict) and "pass_ok" in det:
+                try:
+                    row["orating"] = _or.orating(det)
+                except Exception:
+                    pass
+        return rows
     except Exception:
         return []
 
@@ -200,6 +218,7 @@ def save_squad_meta(players: list[dict]) -> int:
         "name": p["name"],
         "nick": p.get("nick"), "dorsal": p.get("dorsal"),
         "pos": p.get("pos"), "note": p.get("note"),
+        "alias": p.get("alias"),   # nome(s) alternativos para casar co volcado de Sofascore
         "signing": bool(p.get("signing", False)),
     } for p in players]
     url = f"{SUPABASE_URL}/rest/v1/{SQUAD_TABLE}"
@@ -214,7 +233,7 @@ def load_squad_meta() -> list[dict]:
     """Le os datos editables da plantilla. Se non hai Supabase, []."""
     if not enabled():
         return []
-    url = f"{SUPABASE_URL}/rest/v1/{SQUAD_TABLE}?select=name,nick,dorsal,pos,note,signing"
+    url = f"{SUPABASE_URL}/rest/v1/{SQUAD_TABLE}?select=name,nick,dorsal,pos,note,alias,signing"
     try:
         with httpx.Client(timeout=15) as client:
             r = client.get(url, headers=_headers())

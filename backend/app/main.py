@@ -791,11 +791,16 @@ def get_squad():
     for p in squad:
         m = meta_by_name.get(norm(p["name"]))
         if m:
-            # aplicar edicións do admin (apodo, dorsal, posición, nota)
+            # aplicar edicións do admin (apodo, dorsal, posición, nota, alias)
             if m.get("nick"): p["nick"] = m["nick"]
             if m.get("dorsal") is not None: p["dorsal"] = m["dorsal"]
             if m.get("pos"): p["pos"] = m["pos"]
             if m.get("note"): p["note"] = m["note"]
+            if m.get("alias"):
+                # o alias pode ser unha lista separada por comas: engádese aos candidatos
+                extra = [a.strip() for a in str(m["alias"]).split(",") if a.strip()]
+                p["aliases"] = (p.get("aliases") or []) + extra
+                p["alias"] = m["alias"]   # cru, para editar no admin
         p["display"] = p.get("nick") or p["name"]   # nome a amosar no frontend
         out.append(apply_ratings(p))
         seen.add(norm(p["name"]))
@@ -1186,6 +1191,7 @@ class SquadMetaEntry(BaseModel):
     dorsal: int | None = None
     pos: str | None = None       # GK/DEF/MED/DEL
     note: str | None = None      # frase/adxectivo curto
+    alias: str | None = None     # nome(s) alt. para casar co volcado (separados por comas)
     signing: bool = False        # True se é un fichaxe engadido a man
 
 
@@ -1536,13 +1542,15 @@ def get_lineup(jornada: int):
 
     saved = odds_store.load_lineup(jornada)
 
-    # oRatings desa xornada + apodos (display)
+    # oRatings desa xornada + apodos (display) + minutos
     ratings = odds_store.load_ratings()
     meta = {mm["name"].lower().strip(): mm for mm in odds_store.load_squad_meta()}
     orating_by = {}
+    mins_by = {}
     for r in ratings:
         if r["jornada"] == jornada and r.get("orating") is not None:
             orating_by[r["player"].lower().strip()] = r["orating"]
+            mins_by[r["player"].lower().strip()] = r.get("mins")
 
     def display_of(name):
         m = meta.get((name or "").lower().strip())
@@ -1550,19 +1558,35 @@ def get_lineup(jornada: int):
 
     if saved:
         players = saved["players"]
+        titular_keys = set()
         for p in players:
             key = (p.get("name") or "").lower().strip()
             p["display"] = display_of(p.get("name"))
             if key in orating_by:
                 p["oRating"] = orating_by[key]
+            if p.get("name"):
+                titular_keys.add(key)
+        # SUPLENTES: xogadores con nota nesa xornada que NON están no once titular.
+        # Amosan a súa nota no panel (xogaron minutos pero non foron titulares).
+        subs = []
+        for r in ratings:
+            if r["jornada"] != jornada or r.get("orating") is None:
+                continue
+            key = r["player"].lower().strip()
+            if key in titular_keys:
+                continue
+            subs.append({"name": r["player"], "display": display_of(r["player"]),
+                         "oRating": r["orating"], "mins": r.get("mins")})
+        # ordenar por minutos (máis primeiro), logo por nota
+        subs.sort(key=lambda s: (-(s.get("mins") or 0), -(s.get("oRating") or 0)))
         return {"formation": saved["formation"], "players": players,
-                "context": ctx, "saved": True}
+                "context": ctx, "saved": True, "subs": subs}
 
     # sen aliñación: slots baleiros da formación por defecto
     formation = "4-2-3-1"
     slots = [{"x": s["x"], "y": s["y"], "role": s["role"], "name": None, "display": None}
              for s in FORMATIONS[formation]]
-    return {"formation": formation, "players": slots, "context": ctx, "saved": False}
+    return {"formation": formation, "players": slots, "context": ctx, "saved": False, "subs": []}
 
 
 class LineupPlayer(BaseModel):
