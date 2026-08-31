@@ -2110,7 +2110,7 @@ function Squad({ t }) {
         {list.map((p) => (
           <div key={p.name} onClick={() => setSelected(p.name)}
             className="tap relative cursor-pointer overflow-hidden rounded-xl border border-neutral-200 bg-white p-3 transition hover:shadow-md">
-            <div className="absolute inset-x-0 top-0 h-1" style={{ backgroundColor: p.signing ? "#e0a500" : RED }} />
+            <div className="absolute inset-x-0 top-0 h-1" style={{ backgroundColor: RED }} />
             <div className="mb-2 flex items-start justify-between">
               <div className="flex items-baseline gap-1.5">
                 <span className="text-2xl font-black tabular-nums">{p.dorsal ?? "–"}</span>
@@ -2120,7 +2120,7 @@ function Squad({ t }) {
             </div>
             <h4 className="truncate text-sm font-bold leading-tight">{p.display || p.name}</h4>
             <div className="mt-0.5 text-xs text-neutral-500">
-              {p.signing ? <span className="font-semibold text-amber-600">{t.signing || "Obxectivo"}</span> : <>{p.born ? `${2026 - p.born} ${t.years} · ` : ""}{p.nat}</>}
+              {p.born ? `${2026 - p.born} ${t.years} · ` : ""}{p.nat}
             </div>
             {p.note && <div className="mt-1.5 line-clamp-2 text-[11px] italic text-neutral-500">"{p.note}"</div>}
             {p.games > 0 && <div className="mt-2 border-t border-neutral-100 pt-1.5 text-xs"><span className="text-neutral-400">{t.games || "Partidos"}: </span><span className="font-semibold text-neutral-700">{p.games}</span></div>}
