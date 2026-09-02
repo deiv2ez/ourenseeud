@@ -414,8 +414,12 @@ function AdminPanel({ t, onExit }) {
   // Siguiente (cuotas)
   const [jornada, setJornada] = useState(null);
   const [rows, setRows] = useState([]);
-  // Análise pre-game (2ª páxina do informe)
-  const [analysisText, setAnalysisText] = useState("");
+  // Análise pre-game (2ª páxina do informe) — por seccións
+  const [analysis, setAnalysis] = useState({
+    herida: "", dir1: "", dir2: "", dir3: "", plan_con: "", plan_sen: "",
+    mu_vantaxe: "", mu_risco: "", mu_desvantaxe: "",
+    mom1: "", mom2: "", mom3: "", mom4: "", conclusion: "",
+  });
   const [analysisBusy, setAnalysisBusy] = useState(false);
   const [analysisLoaded, setAnalysisLoaded] = useState(false);
   // Anterior (stats)
@@ -585,17 +589,27 @@ function AdminPanel({ t, onExit }) {
     if (!jornada || analysisLoaded) return;
     try {
       const r = await api.adminGetAnalysis(token, jornada);
-      setAnalysisText(r.text || "");
+      if (r.text) {
+        try {
+          const obj = JSON.parse(r.text);
+          setAnalysis((prev) => ({ ...prev, ...obj }));
+        } catch {
+          // compat: se era texto plano antigo, métese na herida
+          setAnalysis((prev) => ({ ...prev, herida: r.text }));
+        }
+      }
       setAnalysisLoaded(true);
     } catch { /* ignora */ }
   };
+
+  const setAnalysisField = (k, v) => setAnalysis((a) => ({ ...a, [k]: v }));
 
   const saveAnalysis = async () => {
     if (!jornada) { setMsg("Non hai xornada de referencia."); return; }
     setAnalysisBusy(true); setMsg("");
     try {
-      const res = await api.adminSaveAnalysis(token, jornada, analysisText);
-      setMsg(`✓ Análise gardada (${res.chars} caracteres). Xerarase a 2ª páxina do informe.`);
+      const res = await api.adminSaveAnalysis(token, jornada, JSON.stringify(analysis));
+      setMsg(`✓ Análise gardada. Xerarase a 2ª páxina do informe.`);
     } catch {
       setMsg("✗ Erro ao gardar a análise.");
     } finally { setAnalysisBusy(false); }
@@ -789,22 +803,50 @@ function AdminPanel({ t, onExit }) {
 
             {/* ---- Análise pre-game (2ª páxina do informe) ---- */}
             <div className="mt-6 border-t border-neutral-200 pt-4">
-              <h3 className="mb-1 text-sm font-bold">Análise pre-game (informe · 2ª páxina)</h3>
+              <h3 className="mb-1 text-sm font-bold">Análise táctico (informe · 2ª páxina)</h3>
               <p className="mb-2 text-xs text-neutral-500">
-                Pega aquí o teu análise táctico do rival (datos reais de eventos, xT, xG…). Xérase
-                a 2ª páxina do informe: a herida do rival, directrices, cruces de datos, plan de
-                partido e momentum. Se contradí ao modelo, manda o teu análise.
+                Escribe cada sección do teu análise do rival. Móstranse tal cual na 2ª páxina do
+                informe, coa estética. Deixa en branco o que non queiras que apareza.
               </p>
               {!analysisLoaded && (
                 <button onClick={loadAnalysis} className="tap mb-2 text-xs font-semibold text-neutral-600 underline">
                   Cargar análise gardada da xornada {jornada}
                 </button>
               )}
-              <textarea value={analysisText} onChange={(e) => setAnalysisText(e.target.value)}
-                onFocus={loadAnalysis} rows={10} placeholder="Pega aquí o análise pre-game completo…"
-                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-xs leading-relaxed" />
+              {(() => {
+                const Field = ({ k, label, rows = 3 }) => (
+                  <div className="mb-3">
+                    <label className="mb-1 block text-[10px] font-bold uppercase text-neutral-500">{label}</label>
+                    <textarea value={analysis[k]} onFocus={loadAnalysis}
+                      onChange={(e) => setAnalysisField(k, e.target.value)} rows={rows}
+                      className="w-full rounded-lg border border-neutral-300 px-2.5 py-2 text-xs leading-relaxed" />
+                  </div>
+                );
+                return (
+                  <>
+                    <Field k="herida" label="A ferida do rival" rows={4} />
+                    <div className="mb-1 text-[10px] font-bold uppercase text-neutral-500">Directrices innegociables</div>
+                    <Field k="dir1" label="Directriz 1" rows={2} />
+                    <Field k="dir2" label="Directriz 2" rows={2} />
+                    <Field k="dir3" label="Directriz 3" rows={2} />
+                    <div className="mb-1 text-[10px] font-bold uppercase text-neutral-500">Plan de partido</div>
+                    <Field k="plan_con" label="Con balón" rows={3} />
+                    <Field k="plan_sen" label="Sen balón" rows={3} />
+                    <div className="mb-1 text-[10px] font-bold uppercase text-neutral-500">Matchups críticos</div>
+                    <Field k="mu_vantaxe" label="Vantaxe" rows={3} />
+                    <Field k="mu_risco" label="Risco" rows={3} />
+                    <Field k="mu_desvantaxe" label="Desvantaxe" rows={3} />
+                    <div className="mb-1 text-[10px] font-bold uppercase text-neutral-500">Momentum e alertas</div>
+                    <Field k="mom1" label="Minutos 0-22" rows={2} />
+                    <Field k="mom2" label="Minutos 23-45" rows={2} />
+                    <Field k="mom3" label="Minutos 46-67" rows={2} />
+                    <Field k="mom4" label="Minutos 68-90" rows={2} />
+                    <Field k="conclusion" label="Conclusión" rows={3} />
+                  </>
+                );
+              })()}
               <button onClick={saveAnalysis} disabled={analysisBusy}
-                className="tap mt-2 w-full rounded-lg border border-neutral-800 bg-neutral-800 py-2.5 text-sm font-bold text-white disabled:opacity-50">
+                className="tap mt-1 w-full rounded-lg border border-neutral-800 bg-neutral-800 py-2.5 text-sm font-bold text-white disabled:opacity-50">
                 {analysisBusy ? "Gardando…" : "Gardar análise"}
               </button>
             </div>
