@@ -14,6 +14,7 @@ from reportlab.lib.units import mm
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+                                PageBreak,
                                 Image, HRFlowable)
 from reportlab.lib.enums import TA_LEFT, TA_JUSTIFY, TA_CENTER, TA_RIGHT
 
@@ -156,6 +157,8 @@ def build_report(data: dict, logo_path: str | None = None) -> bytes:
 
     lead = (f"{data['favor_text']} O contexto do encontro {data['venue_place']} "
             f"{data['venue_text']}")
+    if data.get("intro_value"):
+        lead += f" {data['intro_value']}"
     S.append(Paragraph(lead, ss["rLead"]))
     S.append(Spacer(1, 5))
     S.append(_rule(HAIR, 0.5, sa=6))
@@ -267,5 +270,88 @@ def build_report(data: dict, logo_path: str | None = None) -> bytes:
     S.append(Paragraph("Xerado automaticamente a partir de datos reais de rendemento, xG e "
                        "probabilidades · Ourense é UD", ss["rSmall"]))
 
+    # ============ SEGUNDA PÁXINA: análise táctico (se hai) ============
+    ap = data.get("analysis_page")
+    if ap:
+        S.append(PageBreak())
+        S += _analysis_page(ap, data, ss)
+
     doc.build(S)
     return buf.getvalue()
+
+
+def _analysis_page(ap: dict, data: dict, ss) -> list:
+    """Renderiza a 2ª páxina: análise táctico do rival (datos reais), estilo do informe."""
+    rival_name = data['away'] if data['is_home'] else data['home']
+    S = []
+    # cabeceira da páxina
+    S.append(Paragraph("Análise táctico", ss["rTitle"]))
+    S.append(Paragraph(f"Radiografía do rival · <b>{rival_name}</b>", ss["rSub"]))
+    S.append(Spacer(1, 4))
+    S.append(_rule(INK, 1.0, sa=7))
+
+    # debilidade estrutural
+    if ap.get("key_weakness"):
+        S.append(_sec("A herida do rival", ss))
+        S.append(Paragraph(ap["key_weakness"], ss["rBody"]))
+        S.append(Spacer(1, 4))
+
+    # 3 directrices innegociables
+    if ap.get("directives"):
+        S.append(_sec("Directrices innegociables", ss))
+        for i, d in enumerate(ap["directives"][:3], 1):
+            S.append(Paragraph(f"<font color='#C8102E'><b>{i:02d}</b></font>&nbsp;&nbsp;{d}", ss["rTip"]))
+            S.append(Spacer(1, 3))
+        S.append(Spacer(1, 3))
+
+    # matchups: VANTAXE / RISCO / DESVANTAXE
+    if ap.get("matchups"):
+        S.append(_sec("Cruces de datos", ss))
+        tag_color = {"VANTAXE": "#1a8a4a", "RISCO": "#c99700", "DESVANTAXE": "#c0392b"}
+        rows = []
+        for mu in ap["matchups"]:
+            tag = (mu.get("tag") or "").upper()
+            col = tag_color.get(tag, "#555555")
+            rows.append([
+                Paragraph(f"<font color='{col}'><b>{tag}</b></font>", ss["rScenL"]),
+                Paragraph(mu.get("text", ""), ss["rBody"]),
+            ])
+        t = Table(rows, colWidths=[CONTENT_W * 0.22, CONTENT_W * 0.78])
+        t.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("LINEBELOW", (0, 0), (-1, -2), 0.4, HAIR),
+        ]))
+        S.append(t)
+        S.append(Spacer(1, 6))
+
+    # game plan (con / sen balón)
+    if ap.get("gameplan_with") or ap.get("gameplan_without"):
+        S.append(_sec("Plan de partido", ss))
+        gp = Table([
+            [Paragraph("CON BALÓN", ss["rMetricL"]), Paragraph(ap.get("gameplan_with", ""), ss["rBody"])],
+            [Paragraph("SEN BALÓN", ss["rMetricL"]), Paragraph(ap.get("gameplan_without", ""), ss["rBody"])],
+        ], colWidths=[CONTENT_W * 0.20, CONTENT_W * 0.80])
+        gp.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("LINEBELOW", (0, 0), (-1, 0), 0.4, HAIR),
+        ]))
+        S.append(gp)
+        S.append(Spacer(1, 6))
+
+    # momentum por minutos
+    if ap.get("momentum"):
+        S.append(_sec("Momentum e alertas", ss))
+        for tr in ap["momentum"]:
+            label = tr.get("label", "")
+            txt = tr.get("text", "")
+            S.append(Paragraph(f"<b>{label}</b> — {txt}", ss["rBody"]))
+            S.append(Spacer(1, 3))
+
+    S.append(Spacer(1, 6))
+    S.append(_rule(HAIR, 0.5, sa=4))
+    S.append(Paragraph("Análise táctico a partir de datos reais de eventos · Ourense é UD", ss["rSmall"]))
+    return S

@@ -155,3 +155,65 @@ def context_from_news(rival_name: str, is_home: bool, lang: str = "gl") -> str |
         return text
     except Exception:
         return None
+
+
+def analysis_page(analysis_text: str, rival_name: str, is_home: bool,
+                  pw: int, pd: int, pl: int, lang: str = "gl") -> dict | None:
+    """
+    A partir do ANÁLISE PRE-GAME (texto real que pega o admin) xera as seccións da 2ª
+    páxina do informe, redactadas con coherencia e no estilo do informe.
+
+    REGRA CLAVE: se hai incoherencia entre o análise (datos REAIS) e o modelo (PREDICHO),
+    manda o ANÁLISE. O modelo é secundario.
+
+    Devolve un dict con estas claves (ou None se non hai clave / falla):
+      intro_value   : conclusión de valor engadido (1-2 frases) para a 1ª páxina.
+      key_weakness  : a debilidade estrutural do rival + o dato que a demostra (1-2 frases).
+      directives    : lista de 3 directrices innegociables (curtas).
+      matchups      : lista de 3 {tag: "VANTAXE|RISCO|DESVANTAXE", text: "..."}.
+      gameplan_with : fase con balón, resumida (1-2 frases).
+      gameplan_without: fase sen balón, resumida (1-2 frases).
+      momentum      : lista de tramos {label: "min X-Y", text: "..."} (do punto 5).
+    """
+    if not enabled() or not analysis_text or not analysis_text.strip():
+        return None
+    idioma = "galego" if lang == "gl" else "castelán"
+    prompt = (
+        f"Es o analista tácticoo da UD Ourense. Recibes un ANÁLISE PRE-GAME real (con datos "
+        f"de eventos, xT, xG, posesión...) do vindeiro rival: {rival_name}. "
+        f"O modelo predí: vitoria {pw}%, empate {pd}%, derrota {pl}% (dato PREDICHO, secundario). "
+        f"REGRA: se algo do análise contradí o modelo, MANDA O ANÁLISE (datos reais).\n\n"
+        f"ANÁLISE PRE-GAME:\n\"\"\"\n{analysis_text.strip()}\n\"\"\"\n\n"
+        f"Redacta en {idioma}, ton informativo, sobrio e táctico, SEN markdown, SEN inventar "
+        f"datos que non estean no análise. Devolve un JSON válido (e SÓ o JSON, sen ```), con:\n"
+        f"- intro_value: 1-2 frases coa conclusión de valor engadido (o escenario ideal do partido).\n"
+        f"- key_weakness: 1-2 frases coa debilidade estrutural do rival e o dato que a demostra.\n"
+        f"- directives: lista de exactamente 3 directrices innegociables, curtas e accionables.\n"
+        f"- matchups: lista de 3 obxectos {{\"tag\":\"VANTAXE|RISCO|DESVANTAXE\",\"text\":\"...\"}} "
+        f"(un de cada tipo, 1 frase cada un).\n"
+        f"- gameplan_with: 1-2 frases, fase CON balón (ataque/transición), resumida.\n"
+        f"- gameplan_without: 1-2 frases, fase SEN balón (presión/bloque), resumida.\n"
+        f"- momentum: lista de tramos temporais {{\"label\":\"min 0-15\",\"text\":\"...\"}} do análise "
+        f"(alertas e oportunidades por minutos), 1 frase por tramo.\n"
+        f"Non repitas datos entre seccións. Concisо."
+    )
+    try:
+        with httpx.Client(timeout=30) as client:
+            r = client.post(
+                URL,
+                headers={"x-goog-api-key": GEMINI_API_KEY, "Content-Type": "application/json"},
+                json={"contents": [{"parts": [{"text": prompt}]}]},
+            )
+            r.raise_for_status()
+            data = r.json()
+        text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+        # limpar posibles cercas de código
+        import json as _json, re
+        text = re.sub(r"^```(json)?|```$", "", text.strip(), flags=re.MULTILINE).strip()
+        parsed = _json.loads(text)
+        # validación mínima
+        if not isinstance(parsed, dict) or "directives" not in parsed:
+            return None
+        return parsed
+    except Exception:
+        return None

@@ -1479,17 +1479,25 @@ def report_next(team: str = "UD Ourense"):
     keys_for = _report_keys_for(rival_xg, rival_s, seed)
     venue_analysis = rc.venue_analysis(is_home, seed)
     context_news = None
+    analysis_page = None
+    intro_value = None
     try:
-        from . import gemini
+        from . import gemini, odds_store as _os
         gm = gemini.report_matchup(m["home"], m["away"], is_home,
                                    rival_block, udo_block, pw, round(p["draw"]*100), pl, lang="gl")
         if gm:
-            # a clave de Gemini vai a primeira posición; mantense o resto do repertorio
             keys_for = [gm["key_for"]] + keys_for[:2]
             venue_analysis = gm["venue_analysis"]
-        # contexto de dinámica recente a partir de noticias (só dinámica, sen rumores)
         rival_name = m["away"] if is_home else m["home"]
         context_news = gemini.context_from_news(rival_name, is_home, lang="gl")
+        # análise pre-game (2ª páxina): texto que pega o admin, procesado por Gemini
+        analysis_text = _os.load_analysis(m["jornada"])
+        if analysis_text:
+            ap = gemini.analysis_page(analysis_text, rival_name, is_home,
+                                      pw, round(p["draw"]*100), pl, lang="gl")
+            if ap:
+                analysis_page = ap
+                intro_value = ap.get("intro_value")
     except Exception:
         pass
 
@@ -1511,6 +1519,8 @@ def report_next(team: str = "UD Ourense"):
         "keys_against": rc.keys_against(seed),
         "venue_analysis": venue_analysis,
         "context_news": context_news,
+        "analysis_page": analysis_page,
+        "intro_value": intro_value,
         "scenario_lead": rc.scenario_lead(seed),
         "scenario_behind": rc.scenario_behind(seed),
         "advice": rc.advice(seed),
@@ -1702,8 +1712,30 @@ def admin_save_lineup(payload: LineupUpload, user: dict = Depends(require_admin)
             "formation": payload.formation, "count": len(players)}
 
 
-@app.on_event("startup")
-def _ensure_admin():
+class AnalysisEntry(BaseModel):
+    jornada: int
+    text: str
+
+
+@app.get("/api/admin/analysis/{jornada}")
+def admin_get_analysis(jornada: int, user: dict = Depends(require_admin)):
+    """Le o texto de análise pre-game gardado para esa xornada (para editar no panel)."""
+    from . import odds_store
+    return {"jornada": jornada, "text": odds_store.load_analysis(jornada) or ""}
+
+
+@app.post("/api/admin/analysis")
+def admin_save_analysis(payload: AnalysisEntry, user: dict = Depends(require_admin)):
+    """Garda o texto de análise pre-game (para a 2ª páxina do informe). Só admin."""
+    from . import odds_store
+    if not odds_store.enabled():
+        raise HTTPException(400, "Fai falta Supabase para gardar a análise.")
+    try:
+        odds_store.save_analysis(payload.jornada, payload.text)
+    except Exception as exc:
+        raise HTTPException(502, f"Erro gardando a análise: {exc}")
+    return {"ok": True, "by": user["username"], "jornada": payload.jornada,
+            "chars": len(payload.text)}
     """
     Crea/actualiza o usuario admin ao arrancar, lendo de variables de entorno.
     Isto resolve dúas cousas no plan gratuíto de Render:

@@ -371,3 +371,37 @@ def load_all_lineups() -> list[dict]:
             return r.json()
     except Exception:
         return []
+
+
+# ---------------------------------------------- análise pre-game (informe) ---
+# Texto libre que o admin pega para xerar a 2ª páxina do informe (análise táctico
+# do rival con datos reais). Unha por xornada.
+ANALYSIS_TABLE = "match_analysis"
+
+
+def save_analysis(jornada: int, text: str) -> bool:
+    """Garda (upsert) o texto de análise pre-game dunha xornada."""
+    if not enabled():
+        return False
+    row = {"jornada": jornada, "analysis": text}
+    url = f"{SUPABASE_URL}/rest/v1/{ANALYSIS_TABLE}"
+    headers = {**_headers(), "Prefer": "resolution=merge-duplicates,return=minimal"}
+    with httpx.Client(timeout=15) as client:
+        r = client.post(url, json=[row], headers=headers)
+        r.raise_for_status()
+    return True
+
+
+def load_analysis(jornada: int) -> str | None:
+    """Le o texto de análise pre-game dunha xornada. None se non existe."""
+    if not enabled():
+        return None
+    url = f"{SUPABASE_URL}/rest/v1/{ANALYSIS_TABLE}?jornada=eq.{jornada}&select=analysis"
+    try:
+        with httpx.Client(timeout=15) as client:
+            r = client.get(url, headers=_headers())
+            r.raise_for_status()
+            rows = r.json()
+            return rows[0]["analysis"] if rows else None
+    except Exception:
+        return None
