@@ -1736,6 +1736,9 @@ def admin_save_analysis(payload: AnalysisEntry, user: dict = Depends(require_adm
         raise HTTPException(502, f"Erro gardando a análise: {exc}")
     return {"ok": True, "by": user["username"], "jornada": payload.jornada,
             "chars": len(payload.text)}
+
+
+def _ensure_admin():
     """
     Crea/actualiza o usuario admin ao arrancar, lendo de variables de entorno.
     Isto resolve dúas cousas no plan gratuíto de Render:
@@ -1779,3 +1782,12 @@ def admin_health():
 @app.get("/")
 def root():
     return {"app": "Ourense é UD", "docs": "/docs"}
+
+
+# --- Rexistro do arranque (ao FINAL do ficheiro, a proba de insercións de código) ---
+# Rexistramos aquí, ao final de todo, para que non dependa de estar xusto enriba dunha
+# función concreta. Así, aínda que se inseriran endpoints preto de _ensure_admin, o admin
+# SEMPRE se crea ao arrancar. _startup_admin só chama a _ensure_admin.
+@app.on_event("startup")
+def _startup_admin():
+    _ensure_admin()
