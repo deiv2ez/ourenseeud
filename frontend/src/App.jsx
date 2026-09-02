@@ -414,6 +414,10 @@ function AdminPanel({ t, onExit }) {
   // Siguiente (cuotas)
   const [jornada, setJornada] = useState(null);
   const [rows, setRows] = useState([]);
+  // Análise pre-game (2ª páxina do informe)
+  const [analysisText, setAnalysisText] = useState("");
+  const [analysisBusy, setAnalysisBusy] = useState(false);
+  const [analysisLoaded, setAnalysisLoaded] = useState(false);
   // Anterior (stats)
   const [prevJornada, setPrevJornada] = useState(null);
   const [prevRows, setPrevRows] = useState([]);   // [{home,away,has_stats,raw}]
@@ -574,6 +578,27 @@ function AdminPanel({ t, onExit }) {
     } catch {
       setMsg("✗ Erro ao gardar as cuotas.");
     } finally { setBusy(false); }
+  };
+
+  // Análise pre-game: cargar (ao entrar na pestana) e gardar
+  const loadAnalysis = async () => {
+    if (!jornada || analysisLoaded) return;
+    try {
+      const r = await api.adminGetAnalysis(token, jornada);
+      setAnalysisText(r.text || "");
+      setAnalysisLoaded(true);
+    } catch { /* ignora */ }
+  };
+
+  const saveAnalysis = async () => {
+    if (!jornada) { setMsg("Non hai xornada de referencia."); return; }
+    setAnalysisBusy(true); setMsg("");
+    try {
+      const res = await api.adminSaveAnalysis(token, jornada, analysisText);
+      setMsg(`✓ Análise gardada (${res.chars} caracteres). Xerarase a 2ª páxina do informe.`);
+    } catch {
+      setMsg("✗ Erro ao gardar a análise.");
+    } finally { setAnalysisBusy(false); }
   };
 
   const saveStats = async () => {
@@ -761,6 +786,28 @@ function AdminPanel({ t, onExit }) {
             <button onClick={saveOdds} disabled={busy}
               className="mt-4 w-full rounded-lg py-3 text-sm font-bold text-white disabled:opacity-50"
               style={{ backgroundColor: RED }}>{busy ? "Gardando…" : "Gardar e recalcular"}</button>
+
+            {/* ---- Análise pre-game (2ª páxina do informe) ---- */}
+            <div className="mt-6 border-t border-neutral-200 pt-4">
+              <h3 className="mb-1 text-sm font-bold">Análise pre-game (informe · 2ª páxina)</h3>
+              <p className="mb-2 text-xs text-neutral-500">
+                Pega aquí o teu análise táctico do rival (datos reais de eventos, xT, xG…). Xérase
+                a 2ª páxina do informe: a herida do rival, directrices, cruces de datos, plan de
+                partido e momentum. Se contradí ao modelo, manda o teu análise.
+              </p>
+              {!analysisLoaded && (
+                <button onClick={loadAnalysis} className="tap mb-2 text-xs font-semibold text-neutral-600 underline">
+                  Cargar análise gardada da xornada {jornada}
+                </button>
+              )}
+              <textarea value={analysisText} onChange={(e) => setAnalysisText(e.target.value)}
+                onFocus={loadAnalysis} rows={10} placeholder="Pega aquí o análise pre-game completo…"
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-xs leading-relaxed" />
+              <button onClick={saveAnalysis} disabled={analysisBusy}
+                className="tap mt-2 w-full rounded-lg border border-neutral-800 bg-neutral-800 py-2.5 text-sm font-bold text-white disabled:opacity-50">
+                {analysisBusy ? "Gardando…" : "Gardar análise"}
+              </button>
+            </div>
           </>
         )}
 
