@@ -133,3 +133,14 @@ api.adminSaveLineup = (token, jornada, formation, players) =>
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify({ jornada, formation, players }),
   }).then((r) => { if (!r.ok) throw new Error("save"); return r.json(); });
+
+api.adminGetAnalysis = (token, jornada) =>
+  fetch(`${BASE}/api/admin/analysis/${jornada}`, { headers: { Authorization: `Bearer ${token}` } })
+    .then((r) => { if (!r.ok) throw new Error("auth"); return r.json(); });
+
+api.adminSaveAnalysis = (token, jornada, text) =>
+  fetch(`${BASE}/api/admin/analysis`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ jornada, text }),
+  }).then((r) => { if (!r.ok) throw new Error("save"); return r.json(); });
