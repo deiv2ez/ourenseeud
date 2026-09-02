@@ -198,22 +198,81 @@ def analysis_page(analysis_text: str, rival_name: str, is_home: bool,
         f"Non repitas datos entre seccións. Concisо."
     )
     try:
-        with httpx.Client(timeout=30) as client:
+        with httpx.Client(timeout=45) as client:
             r = client.post(
                 URL,
                 headers={"x-goog-api-key": GEMINI_API_KEY, "Content-Type": "application/json"},
-                json={"contents": [{"parts": [{"text": prompt}]}]},
+                json={
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    # forzar saída JSON limpa (elimina cercas de código e texto envolvente)
+                    "generationConfig": {"response_mime_type": "application/json"},
+                },
             )
             r.raise_for_status()
             data = r.json()
         text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
-        # limpar posibles cercas de código
         import json as _json, re
+        # por se acaso, limpar cercas de código aínda que pedimos JSON puro
         text = re.sub(r"^```(json)?|```$", "", text.strip(), flags=re.MULTILINE).strip()
         parsed = _json.loads(text)
-        # validación mínima
         if not isinstance(parsed, dict) or "directives" not in parsed:
             return None
         return parsed
     except Exception:
         return None
+
+
+def analysis_page_fallback(analysis_text: str) -> dict:
+    """
+    Xera a 2ª páxina do informe SEN Gemini, directamente do texto do admin. Menos pulido
+    (non reescribe), pero garante que a páxina aparece aínda sen clave ou se Gemini falla.
+    Divide o texto en parágrafos e reparte polas seccións de forma heurística.
+    """
+    if not analysis_text or not analysis_text.strip():
+        return None
+    # normalizar parágrafos
+    paras = [p.strip() for p in analysis_text.replace("\r", "").split("\n") if p.strip()]
+    text_low = analysis_text.lower()
+
+    def find_para(*keywords):
+        for p in paras:
+            pl = p.lower()
+            if any(k in pl for k in keywords):
+                return p
+        return None
+
+    # directrices: buscar liñas que parezan enumeración ou conteñan verbos de acción
+    directives = []
+    for p in paras:
+        pl = p.lower()
+        if any(w in pl for w in ["renunciar", "verticalidad", "verticalidade", "blindar",
+                                  "presión", "presion", "ceder", "atacar", "romper", "buscar"]):
+            # limitar lonxitude
+            if 15 < len(p) < 220:
+                directives.append(p.lstrip("0123456789.-•* ").strip())
+        if len(directives) >= 3:
+            break
+
+    key_weakness = find_para("transiciona", "debilidad", "debilidade", "herida", "concedió",
+                             "concedeu", "sangra", "vulnerab")
+
+    # momentum: liñas con "min" ou rangos de minutos
+    momentum = []
+    import re
+    for p in paras:
+        m = re.search(r"(min[a-z]*\.?\s*\d+\s*[-–]\s*\d+|\d+\s*[-–]\s*\d+\s*min|minuto\s*\d+)", p.lower())
+        if m:
+            label = m.group(0)
+            momentum.append({"label": label, "text": p})
+
+    return {
+        "intro_value": find_para("escenario ideal", "conclusión", "conclusión propia",
+                                 "valor añadido", "valor engadido") or "",
+        "key_weakness": key_weakness or "",
+        "directives": directives[:3] if directives else [paras[0]] if paras else [],
+        "matchups": [],   # sen Gemini non estruturamos os cruces; déixase baleiro
+        "gameplan_with": find_para("con balón", "con balon", "ataque posicional", "transición vertical") or "",
+        "gameplan_without": find_para("sin balón", "sen balón", "bloque medio", "presión", "presion") or "",
+        "momentum": momentum,
+        "_fallback": True,
+    }

@@ -1495,6 +1495,9 @@ def report_next(team: str = "UD Ourense"):
         if analysis_text:
             ap = gemini.analysis_page(analysis_text, rival_name, is_home,
                                       pw, round(p["draw"]*100), pl, lang="gl")
+            if not ap:
+                # se Gemini falla ou non hai clave, xerar a páxina desde o texto (menos pulido)
+                ap = gemini.analysis_page_fallback(analysis_text)
             if ap:
                 analysis_page = ap
                 intro_value = ap.get("intro_value")
@@ -1763,6 +1766,7 @@ def admin_health():
     Abrir en: <api>/api/admin/health
     """
     from .auth import _load_users
+    from . import gemini
     env_user = os.environ.get("ADMIN_USER")
     env_pass_set = bool(os.environ.get("ADMIN_PASSWORD"))
     users = _load_users()
@@ -1773,9 +1777,11 @@ def admin_health():
         "env_ADMIN_PASSWORD_set": env_pass_set,
         "users_file_exists": bool(users),
         "admin_users_registered": admin_names,
+        "gemini_key_set": gemini.enabled(),         # True se GEMINI_API_KEY está en Render
         "hint": ("Se env_ADMIN_*_set é False, define ADMIN_USER e ADMIN_PASSWORD en Render. "
                  "Se están postas pero admin_users_registered está baleiro, reinicia o servizo. "
-                 "Login: usa exactamente o valor de ADMIN_USER e ADMIN_PASSWORD (sen espazos)."),
+                 "Login: usa exactamente o valor de ADMIN_USER e ADMIN_PASSWORD (sen espazos). "
+                 "Se gemini_key_set é False, a 2ª páxina do informe xérase en modo fallback."),
     }
 
 
