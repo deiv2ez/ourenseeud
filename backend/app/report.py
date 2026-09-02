@@ -157,8 +157,6 @@ def build_report(data: dict, logo_path: str | None = None) -> bytes:
 
     lead = (f"{data['favor_text']} O contexto do encontro {data['venue_place']} "
             f"{data['venue_text']}")
-    if data.get("intro_value"):
-        lead += f" {data['intro_value']}"
     S.append(Paragraph(lead, ss["rLead"]))
     S.append(Spacer(1, 5))
     S.append(_rule(HAIR, 0.5, sa=6))
@@ -281,57 +279,47 @@ def build_report(data: dict, logo_path: str | None = None) -> bytes:
 
 
 def _analysis_page(ap: dict, data: dict, ss) -> list:
-    """Renderiza a 2ª páxina: análise táctico do rival (datos reais), estilo do informe."""
+    """
+    Renderiza a 2ª páxina co ANÁLISE TÁCTICO que pega o admin por seccións. Móstrase tal
+    cual (o admin xa o escribe ben), coa estética do informe. Campos esperados (todos opcionais):
+      herida, dir1, dir2, dir3, plan_con, plan_sen,
+      mu_vantaxe, mu_risco, mu_desvantaxe, mom1, mom2, mom3, mom4, conclusion.
+    """
     rival_name = data['away'] if data['is_home'] else data['home']
+    def g(k):
+        v = ap.get(k)
+        return v.strip() if isinstance(v, str) and v.strip() else None
+
     S = []
-    # cabeceira da páxina
     S.append(Paragraph("Análise táctico", ss["rTitle"]))
     S.append(Paragraph(f"Radiografía do rival · <b>{rival_name}</b>", ss["rSub"]))
     S.append(Spacer(1, 4))
     S.append(_rule(INK, 1.0, sa=7))
 
-    # debilidade estrutural
-    if ap.get("key_weakness"):
-        S.append(_sec("A herida do rival", ss))
-        S.append(Paragraph(ap["key_weakness"], ss["rBody"]))
+    # A ferida do rival
+    if g("herida"):
+        S.append(_sec("A ferida do rival", ss))
+        S.append(Paragraph(g("herida"), ss["rBody"]))
         S.append(Spacer(1, 4))
 
-    # 3 directrices innegociables
-    if ap.get("directives"):
+    # Directrices innegociables (1, 2, 3)
+    dirs = [g("dir1"), g("dir2"), g("dir3")]
+    if any(dirs):
         S.append(_sec("Directrices innegociables", ss))
-        for i, d in enumerate(ap["directives"][:3], 1):
-            S.append(Paragraph(f"<font color='#C8102E'><b>{i:02d}</b></font>&nbsp;&nbsp;{d}", ss["rTip"]))
-            S.append(Spacer(1, 3))
+        i = 1
+        for d in dirs:
+            if d:
+                S.append(Paragraph(f"<font color='#C8102E'><b>{i:02d}</b></font>&nbsp;&nbsp;{d}", ss["rTip"]))
+                S.append(Spacer(1, 3))
+                i += 1
         S.append(Spacer(1, 3))
 
-    # matchups: VANTAXE / RISCO / DESVANTAXE
-    if ap.get("matchups"):
-        S.append(_sec("Cruces de datos", ss))
-        tag_color = {"VANTAXE": "#1a8a4a", "RISCO": "#c99700", "DESVANTAXE": "#c0392b"}
-        rows = []
-        for mu in ap["matchups"]:
-            tag = (mu.get("tag") or "").upper()
-            col = tag_color.get(tag, "#555555")
-            rows.append([
-                Paragraph(f"<font color='{col}'><b>{tag}</b></font>", ss["rScenL"]),
-                Paragraph(mu.get("text", ""), ss["rBody"]),
-            ])
-        t = Table(rows, colWidths=[CONTENT_W * 0.22, CONTENT_W * 0.78])
-        t.setStyle(TableStyle([
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("TOPPADDING", (0, 0), (-1, -1), 3),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-            ("LINEBELOW", (0, 0), (-1, -2), 0.4, HAIR),
-        ]))
-        S.append(t)
-        S.append(Spacer(1, 6))
-
-    # game plan (con / sen balón)
-    if ap.get("gameplan_with") or ap.get("gameplan_without"):
+    # Plan de partido (con / sen balón)
+    if g("plan_con") or g("plan_sen"):
         S.append(_sec("Plan de partido", ss))
         gp = Table([
-            [Paragraph("CON BALÓN", ss["rMetricL"]), Paragraph(ap.get("gameplan_with", ""), ss["rBody"])],
-            [Paragraph("SEN BALÓN", ss["rMetricL"]), Paragraph(ap.get("gameplan_without", ""), ss["rBody"])],
+            [Paragraph("CON BALÓN", ss["rMetricL"]), Paragraph(g("plan_con") or "", ss["rBody"])],
+            [Paragraph("SEN BALÓN", ss["rMetricL"]), Paragraph(g("plan_sen") or "", ss["rBody"])],
         ], colWidths=[CONTENT_W * 0.20, CONTENT_W * 0.80])
         gp.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
@@ -342,14 +330,39 @@ def _analysis_page(ap: dict, data: dict, ss) -> list:
         S.append(gp)
         S.append(Spacer(1, 6))
 
-    # momentum por minutos
-    if ap.get("momentum"):
+    # Matchups críticos (Vantaxe / Risco / Desvantaxe)
+    mus = [("VANTAXE", g("mu_vantaxe"), "#1a8a4a"),
+           ("RISCO", g("mu_risco"), "#c99700"),
+           ("DESVANTAXE", g("mu_desvantaxe"), "#c0392b")]
+    if any(x[1] for x in mus):
+        S.append(_sec("Matchups críticos", ss))
+        rows = [[Paragraph(f"<font color='{col}'><b>{tag}</b></font>", ss["rScenL"]),
+                 Paragraph(txt or "", ss["rBody"])] for tag, txt, col in mus if txt]
+        t = Table(rows, colWidths=[CONTENT_W * 0.22, CONTENT_W * 0.78])
+        t.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("LINEBELOW", (0, 0), (-1, -2), 0.4, HAIR),
+        ]))
+        S.append(t)
+        S.append(Spacer(1, 6))
+
+    # Momentum e alertas (4 tramos con etiquetas fixas)
+    moms = [("Minutos 0-22", g("mom1")), ("Minutos 23-45", g("mom2")),
+            ("Minutos 46-67", g("mom3")), ("Minutos 68-90", g("mom4"))]
+    if any(x[1] for x in moms):
         S.append(_sec("Momentum e alertas", ss))
-        for tr in ap["momentum"]:
-            label = tr.get("label", "")
-            txt = tr.get("text", "")
-            S.append(Paragraph(f"<b>{label}</b> — {txt}", ss["rBody"]))
-            S.append(Spacer(1, 3))
+        for label, txt in moms:
+            if txt:
+                S.append(Paragraph(f"<b>{label}</b> — {txt}", ss["rBody"]))
+                S.append(Spacer(1, 3))
+        S.append(Spacer(1, 3))
+
+    # Conclusión
+    if g("conclusion"):
+        S.append(_sec("Conclusión", ss))
+        S.append(Paragraph(g("conclusion"), ss["rBody"]))
 
     S.append(Spacer(1, 6))
     S.append(_rule(HAIR, 0.5, sa=4))

@@ -1479,30 +1479,42 @@ def report_next(team: str = "UD Ourense"):
     keys_for = _report_keys_for(rival_xg, rival_s, seed)
     venue_analysis = rc.venue_analysis(is_home, seed)
     context_news = None
-    analysis_page = None
-    intro_value = None
+    analysis_page = None   # secciones estruturadas que pega o admin (móstranse tal cual)
+
+    # ler o análise estruturado gardado (JSON con seccións)
+    import json as _json2
+    rival_name = m["away"] if is_home else m["home"]
+    analysis_raw = None
     try:
-        from . import gemini, odds_store as _os
+        analysis_raw = odds_store.load_analysis(m["jornada"])
+    except Exception:
+        analysis_raw = None
+    analysis_sections = None
+    if analysis_raw:
+        try:
+            analysis_sections = _json2.loads(analysis_raw)
+        except Exception:
+            # compat: se era texto plano antigo, gárdao como bloque único
+            analysis_sections = {"herida": analysis_raw}
+
+    # texto do análise como CONTEXTO para Gemini (coherencia), sen volcalo na 1ª páxina
+    analysis_context = ""
+    if isinstance(analysis_sections, dict):
+        analysis_context = "\n".join(str(v) for v in analysis_sections.values() if v)
+
+    try:
+        from . import gemini
         gm = gemini.report_matchup(m["home"], m["away"], is_home,
-                                   rival_block, udo_block, pw, round(p["draw"]*100), pl, lang="gl")
+                                   rival_block, udo_block, pw, round(p["draw"]*100), pl,
+                                   lang="gl", extra_context=analysis_context or None)
         if gm:
             keys_for = [gm["key_for"]] + keys_for[:2]
             venue_analysis = gm["venue_analysis"]
-        rival_name = m["away"] if is_home else m["home"]
         context_news = gemini.context_from_news(rival_name, is_home, lang="gl")
-        # análise pre-game (2ª páxina): texto que pega o admin, procesado por Gemini
-        analysis_text = _os.load_analysis(m["jornada"])
-        if analysis_text:
-            ap = gemini.analysis_page(analysis_text, rival_name, is_home,
-                                      pw, round(p["draw"]*100), pl, lang="gl")
-            if not ap:
-                # se Gemini falla ou non hai clave, xerar a páxina desde o texto (menos pulido)
-                ap = gemini.analysis_page_fallback(analysis_text)
-            if ap:
-                analysis_page = ap
-                intro_value = ap.get("intro_value")
     except Exception:
         pass
+
+    analysis_page = analysis_sections   # pásase tal cual ao informe (2ª páxina)
 
     data = {
         "jornada": m["jornada"], "home": m["home"], "away": m["away"], "is_home": is_home,
@@ -1523,7 +1535,6 @@ def report_next(team: str = "UD Ourense"):
         "venue_analysis": venue_analysis,
         "context_news": context_news,
         "analysis_page": analysis_page,
-        "intro_value": intro_value,
         "scenario_lead": rc.scenario_lead(seed),
         "scenario_behind": rc.scenario_behind(seed),
         "advice": rc.advice(seed),

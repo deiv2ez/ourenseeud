@@ -58,18 +58,26 @@ def analyze_team(team_name: str, s: dict, lang: str = "gl") -> str | None:
 
 def report_matchup(home: str, away: str, is_home: bool,
                    rival: dict, udo: dict, pw: int, pd: int, pl: int,
-                   lang: str = "gl") -> dict | None:
+                   lang: str = "gl", extra_context: str | None = None) -> dict | None:
     """
     Xera texto para o INFORME a partir dos DATOS REAIS (sen inventar): unha clave
     ofensiva e unha análise casa/fóra, coherentes co estilo dominador da UD Ourense.
+    Se se pasa extra_context (o análise táctico do admin), úsase como CONTEXTO para que
+    as frases sexan coherentes con el, pero SEN copiar o seu texto.
     Devolve {"key_for": ..., "venue_analysis": ...} ou None se non hai clave / falla.
-    O chamador usará o repertorio (report_copy) como fallback.
     """
     if not enabled():
         return None
     idioma = "galego" if lang == "gl" else "castelán"
     rival_name = away if is_home else home
     lugar = "na casa (O Couto)" if is_home else "a domicilio"
+    ctx_block = ""
+    if extra_context:
+        ctx_block = (
+            f"\nCONTEXTO TÁCTICO (só para dar COHERENCIA; NON copies o seu texto literal, "
+            f"nin cites datos concretos del, só que as túas frases non o contradigan):\n"
+            f"\"\"\"\n{extra_context[:2000]}\n\"\"\"\n"
+        )
     prompt = (
         f"Es o analista da UD Ourense (adestrador Juan Carballo). O estilo do equipo é: "
         f"VALENTE, dominador do balón, presión alta tras perda, transicións verticais polas "
@@ -82,6 +90,7 @@ def report_matchup(home: str, away: str, is_home: bool,
         f"- Rival '{rival_name}': goles a favor {rival.get('gf','—')}, en contra {rival.get('ga','—')}, "
         f"xG xerado {rival.get('xgf','—')}, xG concedido {rival.get('xga','—')}, forma {rival.get('form_label','—')}.\n"
         f"- UD Ourense: goles a favor {udo.get('gf','—')}, en contra {udo.get('ga','—')}, xG xerado {udo.get('xgf','—')}.\n"
+        f"{ctx_block}"
         f"Devolve EXACTAMENTE dúas liñas, sen etiquetas:\n"
         f"Liña 1 (máx 30 palabras): unha clave ofensiva concreta para facerlle dano ao rival, "
         f"coherente co estilo dominador (nada de 'xogar á contra').\n"
@@ -156,132 +165,3 @@ def context_from_news(rival_name: str, is_home: bool, lang: str = "gl") -> str |
         return text
     except Exception:
         return None
-
-
-def analysis_page(analysis_text: str, rival_name: str, is_home: bool,
-                  pw: int, pd: int, pl: int, lang: str = "gl") -> dict | None:
-    """
-    A partir do ANÁLISE PRE-GAME (texto real que pega o admin) xera as seccións da 2ª
-    páxina do informe, redactadas con coherencia e no estilo do informe.
-
-    REGRA CLAVE: se hai incoherencia entre o análise (datos REAIS) e o modelo (PREDICHO),
-    manda o ANÁLISE. O modelo é secundario.
-
-    Devolve un dict con estas claves (ou None se non hai clave / falla):
-      intro_value   : conclusión de valor engadido (1-2 frases) para a 1ª páxina.
-      key_weakness  : a debilidade estrutural do rival + o dato que a demostra (1-2 frases).
-      directives    : lista de 3 directrices innegociables (curtas).
-      matchups      : lista de 3 {tag: "VANTAXE|RISCO|DESVANTAXE", text: "..."}.
-      gameplan_with : fase con balón, resumida (1-2 frases).
-      gameplan_without: fase sen balón, resumida (1-2 frases).
-      momentum      : lista de tramos {label: "min X-Y", text: "..."} (do punto 5).
-    """
-    if not enabled() or not analysis_text or not analysis_text.strip():
-        return None
-    prompt = (
-        "Es o analista táctico da UD Ourense. Recibes un ANÁLISE PRE-GAME real (con datos "
-        f"de eventos: xT, xG, posesión, PPDA...) do vindeiro rival: {rival_name}. "
-        f"O modelo predí: vitoria {pw}%, empate {pd}%, derrota {pl}% (dato PREDICHO, secundario). "
-        "REGRA CLAVE: se algo do análise contradí o modelo, MANDA O ANÁLISE (son datos reais).\n\n"
-        f"ANÁLISE PRE-GAME:\n\"\"\"\n{analysis_text.strip()}\n\"\"\"\n\n"
-        "IDIOMA OBRIGATORIO: redacta TODO en GALEGO correcto (galego normativo). Nin unha "
-        "palabra en castelán. Ton informativo, sobrio e táctico, SEN markdown.\n"
-        "IMPORTANTE: hai texto de sobra no análise. APROVÉITAO. Desenvolve cada sección con "
-        "profundidade, non resumas en exceso: a páxina debe quedar ben chea de contido útil. "
-        "Non inventes datos que non estean no análise, pero SI podes elaborar e explicar os que hai.\n\n"
-        "Devolve un JSON válido (só o JSON) con estas claves:\n"
-        "- intro_value: 2-3 frases coa conclusión de valor engadido (o escenario ideal do partido "
-        "e como gañalo).\n"
-        "- key_weakness: 2-4 frases desenvolvendo a debilidade estrutural do rival e os datos que "
-        "a demostran (a súa 'herida'). Explica por que é a nosa vía de vitoria.\n"
-        "- directives: lista de exactamente 3 directrices innegociables. Cada unha ben explicada "
-        "(1-2 frases con substancia, non telegráficas).\n"
-        "- matchups: lista de 3 obxectos {\"tag\":\"VANTAXE|RISCO|DESVANTAXE\",\"text\":\"...\"} "
-        "(un de cada tipo). Cada 'text' de 2-3 frases, cos datos concretos do cruce e a súa lectura.\n"
-        "- gameplan_with: 2-4 frases, fase CON balón (ataque posicional e transición), con detalle "
-        "táctico real do análise.\n"
-        "- gameplan_without: 2-4 frases, fase SEN balón (presión e bloque), con detalle táctico.\n"
-        "- momentum: lista de tramos temporais {\"label\":\"min X-Y\",\"text\":\"...\"} tal e como "
-        "aparecen no análise (alertas e oportunidades por minutos). Cada 'text' de 1-2 frases con "
-        "o dato e a instrución. Inclúe TODOS os tramos que menciona o análise.\n"
-        "Non repitas os mesmos datos entre seccións distintas."
-    )
-    try:
-        with httpx.Client(timeout=45) as client:
-            r = client.post(
-                URL,
-                headers={"x-goog-api-key": GEMINI_API_KEY, "Content-Type": "application/json"},
-                json={
-                    "contents": [{"parts": [{"text": prompt}]}],
-                    # forzar saída JSON limpa (elimina cercas de código e texto envolvente)
-                    "generationConfig": {"response_mime_type": "application/json"},
-                },
-            )
-            r.raise_for_status()
-            data = r.json()
-        text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
-        import json as _json, re
-        # por se acaso, limpar cercas de código aínda que pedimos JSON puro
-        text = re.sub(r"^```(json)?|```$", "", text.strip(), flags=re.MULTILINE).strip()
-        parsed = _json.loads(text)
-        if not isinstance(parsed, dict) or "directives" not in parsed:
-            return None
-        return parsed
-    except Exception:
-        return None
-
-
-def analysis_page_fallback(analysis_text: str) -> dict:
-    """
-    Xera a 2ª páxina do informe SEN Gemini, directamente do texto do admin. Menos pulido
-    (non reescribe), pero garante que a páxina aparece aínda sen clave ou se Gemini falla.
-    Divide o texto en parágrafos e reparte polas seccións de forma heurística.
-    """
-    if not analysis_text or not analysis_text.strip():
-        return None
-    # normalizar parágrafos
-    paras = [p.strip() for p in analysis_text.replace("\r", "").split("\n") if p.strip()]
-    text_low = analysis_text.lower()
-
-    def find_para(*keywords):
-        for p in paras:
-            pl = p.lower()
-            if any(k in pl for k in keywords):
-                return p
-        return None
-
-    # directrices: buscar liñas que parezan enumeración ou conteñan verbos de acción
-    directives = []
-    for p in paras:
-        pl = p.lower()
-        if any(w in pl for w in ["renunciar", "verticalidad", "verticalidade", "blindar",
-                                  "presión", "presion", "ceder", "atacar", "romper", "buscar"]):
-            # limitar lonxitude
-            if 15 < len(p) < 220:
-                directives.append(p.lstrip("0123456789.-•* ").strip())
-        if len(directives) >= 3:
-            break
-
-    key_weakness = find_para("transiciona", "debilidad", "debilidade", "herida", "concedió",
-                             "concedeu", "sangra", "vulnerab")
-
-    # momentum: liñas con "min" ou rangos de minutos
-    momentum = []
-    import re
-    for p in paras:
-        m = re.search(r"(min[a-z]*\.?\s*\d+\s*[-–]\s*\d+|\d+\s*[-–]\s*\d+\s*min|minuto\s*\d+)", p.lower())
-        if m:
-            label = m.group(0)
-            momentum.append({"label": label, "text": p})
-
-    return {
-        "intro_value": find_para("escenario ideal", "conclusión", "conclusión propia",
-                                 "valor añadido", "valor engadido") or "",
-        "key_weakness": key_weakness or "",
-        "directives": directives[:3] if directives else [paras[0]] if paras else [],
-        "matchups": [],   # sen Gemini non estruturamos os cruces; déixase baleiro
-        "gameplan_with": find_para("con balón", "con balon", "ataque posicional", "transición vertical") or "",
-        "gameplan_without": find_para("sin balón", "sen balón", "bloque medio", "presión", "presion") or "",
-        "momentum": momentum,
-        "_fallback": True,
-    }
