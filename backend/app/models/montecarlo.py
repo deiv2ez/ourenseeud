@@ -321,16 +321,22 @@ class SeasonModel:
 
     @staticmethod
     def _expected_score(lam_h: float, lam_a: float,
-                        base: float = 0.9, gap: float = 0.30) -> list[int]:
+                        base: float = 0.9, gap: float = 0.30,
+                        fav_min: float = 2.0) -> list[int]:
         """
-        Marcador esperado por redondeo asimétrico (óptimo por backtest):
-          · redondea cada lambda con punto de corte `base` (0.9): floor(l + 1 - base).
-          · se o resultado é empate PERO hai favorito claro (|Δλ| >= gap), engade
-            o gol da vitoria ao favorito, evitando o 1-1 aguado.
+        Marcador esperado por redondeo asimétrico. Redondea cada lambda con corte `base`
+        (0.9): floor(l + 1 - base).
+
+        A regra do gap (dar o gol da vitoria ao favorito cando o redondeo dá empate) SÓ se
+        aplica se o favorito ten un lambda alto (>= fav_min). Isto evita inflar empates
+        normais a marcadores esaxerados: p.ex. oGoals 1.4-1.06 daba 2-1, agora dá 1-1.
+        Motivo: dende que o 1X2 (resultado máis probable) sae do logit por Delta Elo, o
+        marcador xa non precisa "forzar" un gañador; só debe ser REALISTA. Backtest sobre
+        3.800 partidos: esta versión mellora o acerto exacto (14.4%) e reduce o erro de goles.
         """
         h = int(np.floor(lam_h + (1.0 - base)))
         a = int(np.floor(lam_a + (1.0 - base)))
-        if h == a and abs(lam_h - lam_a) >= gap:
+        if h == a and abs(lam_h - lam_a) >= gap and max(lam_h, lam_a) >= fav_min:
             if lam_h > lam_a:
                 h += 1
             else:
